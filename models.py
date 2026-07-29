@@ -1,0 +1,39 @@
+from extensions import db, login_manager
+from flask_login import UserMixin
+from datetime import datetime
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # "Manager" or "Nurse"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class InventoryItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    batch_number = db.Column(db.String(80), nullable=False)
+    quantity = db.Column(db.Integer, default=0)
+    expiry_date = db.Column(db.Date, nullable=False)
+    supplier = db.Column(db.String(120))
+    storage_location = db.Column(db.String(120))
+    department = db.Column(db.String(80))
+    unit_price = db.Column(db.Float, default=0.0)
+    min_stock_threshold = db.Column(db.Integer, default=10)
+    qr_code_path = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class StockMovement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('inventory_item.id'), nullable=False)
+    movement_type = db.Column(db.String(20))  # "Issue" or "Receive"
+    quantity = db.Column(db.Integer)
+    performed_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    item = db.relationship('InventoryItem', backref='movements')
+    user = db.relationship('User', backref='movements')
