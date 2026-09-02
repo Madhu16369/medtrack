@@ -3,6 +3,8 @@ from flask_login import login_user, logout_user, login_required, current_user
 from extensions import db, login_manager
 from models import User
 import bcrypt
+import qrcode
+import os
 from models import User, InventoryItem
 from datetime import datetime
 
@@ -88,6 +90,14 @@ def add_item():
             min_stock_threshold=int(request.form.get("min_stock_threshold") or 10),
         )
         db.session.add(new_item)
+        db.session.flush()  # assigns new_item.id without fully committing yet
+
+        qr_data = f"ITEM:{new_item.id}"
+        qr_img = qrcode.make(qr_data)
+        qr_filename = f"item_{new_item.id}.png"
+        qr_path = os.path.join("static", "qrcodes", qr_filename)
+        qr_img.save(qr_path)
+        new_item.qr_code_path = qr_path
         db.session.commit()
         flash("Item added successfully!")
         return redirect("/inventory")
@@ -120,6 +130,21 @@ def delete_item(item_id):
     db.session.commit()
     flash("Item deleted.")
     return redirect("/inventory")
+
+@app.route("/backfill-qr")
+@login_required
+def backfill_qr():
+    items = InventoryItem.query.filter_by(qr_code_path=None).all()
+    for item in items:
+        qr_data = f"ITEM:{item.id}"
+        qr_img = qrcode.make(qr_data)
+        qr_filename = f"item_{item.id}.png"
+        qr_path = os.path.join("static", "qrcodes", qr_filename)
+        qr_img.save(qr_path)
+        item.qr_code_path = qr_path
+    db.session.commit()
+    return "Backfilled QR codes for all items without one."
+
 
 if __name__ == "__main__":
     with app.app_context():

@@ -5,7 +5,7 @@
 <table class="table table-bordered">
     <tr>
         <th>Name</th><th>Batch</th><th>Qty</th><th>Expiry</th>
-        <th>Department</th><th>Actions</th>
+        <th>Department</th><th>QR Code</th><th>Actions</th>
     </tr>
     {% for item in items %}
     <tr>
@@ -14,6 +14,14 @@
         <td>{{ item.quantity }}</td>
         <td>{{ item.expiry_date }}</td>
         <td>{{ item.department }}</td>
+        <td>
+          {% if item.qr_code_path %}
+            <img src="/{{ item.qr_code_path }}" width="60">
+            <a href="/{{ item.qr_code_path }}" download class="d-block small">Download</a>
+          {% else %}
+            N/A
+          {% endif %}
+        </td>
         <td>
             <a href="/inventory/edit/{{ item.id }}" class="btn btn-sm btn-warning">Edit</a>
             <a href="/inventory/delete/{{ item.id }}" class="btn btn-sm btn-danger"
