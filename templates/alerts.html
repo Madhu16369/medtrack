@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Expiry Alerts</h2>
+<table class="table table-bordered">
+    <tr><th>Name</th><th>Batch</th><th>Expiry Date</th><th>Days Left</th><th>Status</th></tr>
+    {% for item, status, color, days_left in alerts %}
+    <tr class="table-{{ color }}">
+        <td>{{ item.name }}</td>
+        <td>{{ item.batch_number }}</td>
+        <td>{{ item.expiry_date }}</td>
+        <td>{{ days_left }}</td>
+        <td><span class="badge bg-{{ color }}">{{ status }}</span></td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

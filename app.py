@@ -5,6 +5,7 @@ from models import User
 import bcrypt
 import qrcode
 import os
+from models import get_expiry_status
 from models import StockMovement
 from models import User, InventoryItem
 from datetime import datetime
@@ -184,6 +185,25 @@ def scan_update(item_id):
     db.session.commit()
     flash(f"Stock updated: {movement_type} of {qty} for {item.name}.")
     return redirect("/inventory")
+
+@app.route("/alerts")
+@login_required
+def alerts():
+    items = InventoryItem.query.order_by(InventoryItem.expiry_date).all()
+    alerts_data = []
+    for item in items:
+        status, color, days_left = get_expiry_status(item)
+        if status != "Safe":  # only show items that actually need attention
+            alerts_data.append((item, status, color, days_left))
+    return render_template("alerts.html", alerts=alerts_data)
+
+@app.context_processor
+def inject_alert_count():
+    if current_user.is_authenticated:
+        items = InventoryItem.query.all()
+        count = sum(1 for item in items if get_expiry_status(item)[0] != "Safe")
+        return dict(alert_count=count)
+    return dict(alert_count=0)
 
 if __name__ == "__main__":
     with app.app_context():

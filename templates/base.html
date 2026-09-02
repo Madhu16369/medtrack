@@ -23,7 +23,10 @@
         <a href="/dashboard" class="d-block text-white mb-3 text-decoration-none">📊 Dashboard</a>
         <a href="/inventory" class="d-block text-white mb-3 text-decoration-none">📦 Inventory</a>
         <a href="/scan" class="d-block text-white mb-3 text-decoration-none">📷 Scan QR</a>
-        <a href="/alerts" class="d-block text-white mb-3 text-decoration-none">⏰ Expiry Alerts</a>
+        <a href="/alerts" class="d-block text-white mb-3 text-decoration-none">
+          ⏰ Expiry Alerts
+          {% if alert_count > 0 %}<span class="badge bg-danger">{{ alert_count }}</span>{% endif %}
+        </a>
         <a href="/reports" class="d-block text-white mb-3 text-decoration-none">📄 Reports</a>
     </div>
     {% endif %}

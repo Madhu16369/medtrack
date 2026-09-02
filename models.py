@@ -37,3 +37,18 @@ class StockMovement(db.Model):
 
     item = db.relationship('InventoryItem', backref='movements')
     user = db.relationship('User', backref='movements')
+
+from datetime import date
+
+def get_expiry_status(item):
+    days_left = (item.expiry_date - date.today()).days
+    if days_left < 0:
+        return "Expired", "danger", days_left
+    elif days_left <= 30:
+        return "Critical", "danger", days_left
+    elif days_left <= 60:
+        return "Warning", "warning", days_left
+    elif days_left <= 90:
+        return "Notice", "info", days_left
+    else:
+        return "Safe", "success", days_left
