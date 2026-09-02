@@ -2,13 +2,72 @@
 {% block content %}
 <h2>Welcome, {{ current_user.username }} 👋</h2>
 <p class="text-muted">Role: {{ current_user.role }}</p>
-<div class="row mt-4">
-    <div class="col-md-4">
-        <div class="card p-3 shadow-sm">
-            <h5>📦 Inventory</h5>
-            <p>Manage all hospital supplies.</p>
-            <a href="/inventory" class="btn btn-primary btn-sm">Go to Inventory</a>
+
+<div class="row mt-3">
+    <div class="col-md-3">
+        <div class="card p-3 shadow-sm text-center">
+            <h6>Total Items</h6><h3>{{ total_items }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 shadow-sm text-center bg-warning-subtle">
+            <h6>Low Stock</h6><h3>{{ low_stock|length }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 shadow-sm text-center bg-info-subtle">
+            <h6>Near Expiry</h6><h3>{{ near_expiry|length }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 shadow-sm text-center bg-danger-subtle">
+            <h6>Expired</h6><h3>{{ expired|length }}</h3>
         </div>
     </div>
 </div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card p-3 shadow-sm">
+            <h5>Stock by Department</h5>
+            <canvas id="deptChart"></canvas>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3 shadow-sm">
+            <h5>📋 Purchase Order Recommendations</h5>
+            {% if reorder_suggestions %}
+            <table class="table table-sm">
+                <tr><th>Item</th><th>Current Qty</th><th>Suggested Reorder</th></tr>
+                {% for item, suggested_qty in reorder_suggestions %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td><b>{{ suggested_qty }}</b></td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% else %}
+            <p class="text-muted">No reorders needed right now.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('deptChart');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{ dept_labels | tojson }},
+        datasets: [{
+            label: 'Stock Quantity',
+            data: {{ dept_values | tojson }},
+            backgroundColor: '#0d6efd'
+        }]
+    },
+    options: { responsive: true }
+});
+</script>
 {% endblock %}

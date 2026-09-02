@@ -1,14 +1,12 @@
-from flask import Flask, render_template, request, redirect, flash
+from flask import Flask, render_template, request, redirect, flash, Response
 from flask_login import login_user, logout_user, login_required, current_user
 from extensions import db, login_manager
-from models import User
+from models import User, InventoryItem, StockMovement, get_expiry_status
+from datetime import datetime
 import bcrypt
 import qrcode
 import os
-from models import get_expiry_status
-from models import StockMovement
-from models import User, InventoryItem
-from datetime import datetime
+import pandas as pd
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'change-this-to-something-random-later'
@@ -18,9 +16,20 @@ db.init_app(app)
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+
+@app.context_processor
+def inject_alert_count():
+    if current_user.is_authenticated:
+        items = InventoryItem.query.all()
+        count = sum(1 for item in items if get_expiry_status(item)[0] != "Safe")
+        return dict(alert_count=count)
+    return dict(alert_count=0)
+
+
 @app.route("/")
 def home():
     return redirect("/login")
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -43,6 +52,7 @@ def register():
 
     return render_template("register.html")
 
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -59,10 +69,6 @@ def login():
 
     return render_template("login.html")
 
-@app.route("/dashboard")
-@login_required
-def dashboard():
-    return render_template("dashboard.html")
 
 @app.route("/logout")
 @login_required
@@ -70,11 +76,44 @@ def logout():
     logout_user()
     return redirect("/login")
 
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    items = InventoryItem.query.all()
+    total_items = len(items)
+    low_stock = [i for i in items if i.quantity < i.min_stock_threshold]
+    near_expiry = [i for i in items if get_expiry_status(i)[0] in ("Critical", "Warning", "Notice")]
+    expired = [i for i in items if get_expiry_status(i)[0] == "Expired"]
+
+    reorder_suggestions = []
+    for item in low_stock:
+        suggested_qty = max(0, (item.min_stock_threshold * 2) - item.quantity)
+        reorder_suggestions.append((item, suggested_qty))
+
+    dept_totals = {}
+    for item in items:
+        dept = item.department or "Unassigned"
+        dept_totals[dept] = dept_totals.get(dept, 0) + item.quantity
+
+    return render_template(
+        "dashboard.html",
+        total_items=total_items,
+        low_stock=low_stock,
+        near_expiry=near_expiry,
+        expired=expired,
+        reorder_suggestions=reorder_suggestions,
+        dept_labels=list(dept_totals.keys()),
+        dept_values=list(dept_totals.values())
+    )
+
+
 @app.route("/inventory")
 @login_required
 def inventory_list():
     items = InventoryItem.query.all()
     return render_template("inventory_list.html", items=items)
+
 
 @app.route("/inventory/add", methods=["GET", "POST"])
 @login_required
@@ -92,7 +131,7 @@ def add_item():
             min_stock_threshold=int(request.form.get("min_stock_threshold") or 10),
         )
         db.session.add(new_item)
-        db.session.flush()  # assigns new_item.id without fully committing yet
+        db.session.flush()
 
         qr_data = f"ITEM:{new_item.id}"
         qr_img = qrcode.make(qr_data)
@@ -100,10 +139,12 @@ def add_item():
         qr_path = os.path.join("static", "qrcodes", qr_filename)
         qr_img.save(qr_path)
         new_item.qr_code_path = qr_path
+
         db.session.commit()
         flash("Item added successfully!")
         return redirect("/inventory")
     return render_template("add_item.html")
+
 
 @app.route("/inventory/edit/<int:item_id>", methods=["GET", "POST"])
 @login_required
@@ -124,6 +165,7 @@ def edit_item(item_id):
         return redirect("/inventory")
     return render_template("edit_item.html", item=item)
 
+
 @app.route("/inventory/delete/<int:item_id>")
 @login_required
 def delete_item(item_id):
@@ -132,6 +174,7 @@ def delete_item(item_id):
     db.session.commit()
     flash("Item deleted.")
     return redirect("/inventory")
+
 
 @app.route("/backfill-qr")
 @login_required
@@ -147,10 +190,12 @@ def backfill_qr():
     db.session.commit()
     return "Backfilled QR codes for all items without one."
 
+
 @app.route("/scan")
 @login_required
 def scan():
     return render_template("scan.html")
+
 
 @app.route("/scan/lookup")
 @login_required
@@ -162,6 +207,7 @@ def scan_lookup():
         return render_template("scan_result.html", item=item)
     flash("QR code not recognized.")
     return redirect("/scan")
+
 
 @app.route("/scan/update/<int:item_id>", methods=["POST"])
 @login_required
@@ -186,6 +232,7 @@ def scan_update(item_id):
     flash(f"Stock updated: {movement_type} of {qty} for {item.name}.")
     return redirect("/inventory")
 
+
 @app.route("/alerts")
 @login_required
 def alerts():
@@ -193,17 +240,10 @@ def alerts():
     alerts_data = []
     for item in items:
         status, color, days_left = get_expiry_status(item)
-        if status != "Safe":  # only show items that actually need attention
+        if status != "Safe":
             alerts_data.append((item, status, color, days_left))
     return render_template("alerts.html", alerts=alerts_data)
 
-@app.context_processor
-def inject_alert_count():
-    if current_user.is_authenticated:
-        items = InventoryItem.query.all()
-        count = sum(1 for item in items if get_expiry_status(item)[0] != "Safe")
-        return dict(alert_count=count)
-    return dict(alert_count=0)
 
 if __name__ == "__main__":
     with app.app_context():
