@@ -5,6 +5,7 @@ from models import User
 import bcrypt
 import qrcode
 import os
+from models import StockMovement
 from models import User, InventoryItem
 from datetime import datetime
 
@@ -145,6 +146,44 @@ def backfill_qr():
     db.session.commit()
     return "Backfilled QR codes for all items without one."
 
+@app.route("/scan")
+@login_required
+def scan():
+    return render_template("scan.html")
+
+@app.route("/scan/lookup")
+@login_required
+def scan_lookup():
+    code = request.args.get("code", "")
+    if code.startswith("ITEM:"):
+        item_id = int(code.replace("ITEM:", ""))
+        item = InventoryItem.query.get_or_404(item_id)
+        return render_template("scan_result.html", item=item)
+    flash("QR code not recognized.")
+    return redirect("/scan")
+
+@app.route("/scan/update/<int:item_id>", methods=["POST"])
+@login_required
+def scan_update(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    movement_type = request.form["movement_type"]
+    qty = int(request.form["quantity"])
+
+    if movement_type == "Issue":
+        item.quantity = max(0, item.quantity - qty)
+    else:
+        item.quantity += qty
+
+    movement = StockMovement(
+        item_id=item.id,
+        movement_type=movement_type,
+        quantity=qty,
+        performed_by=current_user.id
+    )
+    db.session.add(movement)
+    db.session.commit()
+    flash(f"Stock updated: {movement_type} of {qty} for {item.name}.")
+    return redirect("/inventory")
 
 if __name__ == "__main__":
     with app.app_context():

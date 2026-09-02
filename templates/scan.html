@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Scan Item QR Code</h2>
+<div id="reader" style="width: 400px;"></div>
+<div id="result" class="mt-3"></div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+function onScanSuccess(decodedText, decodedResult) {
+    document.getElementById("result").innerHTML =
+        "<p>Scanned: " + decodedText + " — looking it up...</p>";
+    // decodedText will look like "ITEM:7"
+    window.location.href = "/scan/lookup?code=" + encodeURIComponent(decodedText);
+}
+
+var html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader", { fps: 10, qrbox: 250 });
+html5QrcodeScanner.render(onScanSuccess);
+</script>
+{% endblock %}

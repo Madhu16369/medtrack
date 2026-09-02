@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Item Found: {{ item.name }}</h2>
+<p><b>Batch:</b> {{ item.batch_number }} | <b>Current Quantity:</b> {{ item.quantity }} |
+   <b>Expiry:</b> {{ item.expiry_date }} | <b>Department:</b> {{ item.department }}</p>
+
+<form method="POST" action="/scan/update/{{ item.id }}">
+    <div class="mb-3">
+        <label>Action</label>
+        <select name="movement_type" class="form-control">
+            <option value="Issue">Issue (remove stock)</option>
+            <option value="Receive">Receive (add stock)</option>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label>Quantity</label>
+        <input type="number" name="quantity" class="form-control" required min="1">
+    </div>
+    <button type="submit" class="btn btn-primary">Update Stock</button>
+</form>
+<a href="/scan" class="btn btn-secondary mt-2">Scan Another Item</a>
+{% endblock %}
