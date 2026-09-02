@@ -1,0 +1,12 @@
+body {
+    background-color: #f4f6f9;
+}
+.sidebar a:hover {
+    background-color: #495057;
+    padding-left: 8px;
+    border-radius: 4px;
+    transition: 0.2s;
+}
+table.table {
+    background-color: white;
+}
