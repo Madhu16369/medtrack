@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Edit Inventory Item</h2>
+<form method="POST">
+    <div class="mb-3"><label>Item Name</label>
+      <input type="text" name="name" class="form-control" value="{{ item.name }}" required></div>
+    <div class="mb-3"><label>Batch Number</label>
+      <input type="text" name="batch_number" class="form-control" value="{{ item.batch_number }}" required></div>
+    <div class="mb-3"><label>Quantity</label>
+      <input type="number" name="quantity" class="form-control" value="{{ item.quantity }}" required></div>
+    <div class="mb-3"><label>Expiry Date</label>
+      <input type="date" name="expiry_date" class="form-control" value="{{ item.expiry_date }}" required></div>
+    <div class="mb-3"><label>Supplier</label>
+      <input type="text" name="supplier" class="form-control" value="{{ item.supplier }}"></div>
+    <div class="mb-3"><label>Storage Location</label>
+      <input type="text" name="storage_location" class="form-control" value="{{ item.storage_location }}"></div>
+    <div class="mb-3"><label>Department</label>
+      <input type="text" name="department" class="form-control" value="{{ item.department }}"></div>
+    <div class="mb-3"><label>Unit Price</label>
+      <input type="number" step="0.01" name="unit_price" class="form-control" value="{{ item.unit_price }}"></div>
+    <div class="mb-3"><label>Minimum Stock Threshold</label>
+      <input type="number" name="min_stock_threshold" class="form-control" value="{{ item.min_stock_threshold }}"></div>
+    <button type="submit" class="btn btn-primary">Update Item</button>
+</form>
+{% endblock %}

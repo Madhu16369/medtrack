@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Inventory Items</h2>
+<a href="/inventory/add" class="btn btn-primary mb-3">+ Add New Item</a>
+<table class="table table-bordered">
+    <tr>
+        <th>Name</th><th>Batch</th><th>Qty</th><th>Expiry</th>
+        <th>Department</th><th>Actions</th>
+    </tr>
+    {% for item in items %}
+    <tr>
+        <td>{{ item.name }}</td>
+        <td>{{ item.batch_number }}</td>
+        <td>{{ item.quantity }}</td>
+        <td>{{ item.expiry_date }}</td>
+        <td>{{ item.department }}</td>
+        <td>
+            <a href="/inventory/edit/{{ item.id }}" class="btn btn-sm btn-warning">Edit</a>
+            <a href="/inventory/delete/{{ item.id }}" class="btn btn-sm btn-danger"
+               onclick="return confirm('Delete this item?');">Delete</a>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

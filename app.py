@@ -3,6 +3,8 @@ from flask_login import login_user, logout_user, login_required, current_user
 from extensions import db, login_manager
 from models import User
 import bcrypt
+from models import User, InventoryItem
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'change-this-to-something-random-later'
@@ -63,6 +65,61 @@ def dashboard():
 def logout():
     logout_user()
     return redirect("/login")
+
+@app.route("/inventory")
+@login_required
+def inventory_list():
+    items = InventoryItem.query.all()
+    return render_template("inventory_list.html", items=items)
+
+@app.route("/inventory/add", methods=["GET", "POST"])
+@login_required
+def add_item():
+    if request.method == "POST":
+        new_item = InventoryItem(
+            name=request.form["name"],
+            batch_number=request.form["batch_number"],
+            quantity=int(request.form["quantity"]),
+            expiry_date=datetime.strptime(request.form["expiry_date"], "%Y-%m-%d").date(),
+            supplier=request.form.get("supplier"),
+            storage_location=request.form.get("storage_location"),
+            department=request.form.get("department"),
+            unit_price=float(request.form.get("unit_price") or 0),
+            min_stock_threshold=int(request.form.get("min_stock_threshold") or 10),
+        )
+        db.session.add(new_item)
+        db.session.commit()
+        flash("Item added successfully!")
+        return redirect("/inventory")
+    return render_template("add_item.html")
+
+@app.route("/inventory/edit/<int:item_id>", methods=["GET", "POST"])
+@login_required
+def edit_item(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    if request.method == "POST":
+        item.name = request.form["name"]
+        item.batch_number = request.form["batch_number"]
+        item.quantity = int(request.form["quantity"])
+        item.expiry_date = datetime.strptime(request.form["expiry_date"], "%Y-%m-%d").date()
+        item.supplier = request.form.get("supplier")
+        item.storage_location = request.form.get("storage_location")
+        item.department = request.form.get("department")
+        item.unit_price = float(request.form.get("unit_price") or 0)
+        item.min_stock_threshold = int(request.form.get("min_stock_threshold") or 10)
+        db.session.commit()
+        flash("Item updated successfully!")
+        return redirect("/inventory")
+    return render_template("edit_item.html", item=item)
+
+@app.route("/inventory/delete/<int:item_id>")
+@login_required
+def delete_item(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    db.session.delete(item)
+    db.session.commit()
+    flash("Item deleted.")
+    return redirect("/inventory")
 
 if __name__ == "__main__":
     with app.app_context():
