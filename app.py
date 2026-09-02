@@ -7,6 +7,7 @@ import bcrypt
 import qrcode
 import os
 import pandas as pd
+from flask import Response
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'change-this-to-something-random-later'
@@ -244,6 +245,45 @@ def alerts():
             alerts_data.append((item, status, color, days_left))
     return render_template("alerts.html", alerts=alerts_data)
 
+@app.route("/reports")
+@login_required
+def reports():
+    return render_template("reports.html")
+
+def items_to_dataframe(items):
+    rows = []
+    for i in items:
+        status, color, days_left = get_expiry_status(i)
+        rows.append({
+            "Name": i.name, "Batch": i.batch_number, "Quantity": i.quantity,
+            "Expiry Date": i.expiry_date, "Days Left": days_left, "Status": status,
+            "Department": i.department, "Supplier": i.supplier
+        })
+    return pd.DataFrame(rows)
+
+@app.route("/reports/expired.csv")
+@login_required
+def report_expired():
+    items = [i for i in InventoryItem.query.all() if get_expiry_status(i)[0] == "Expired"]
+    df = items_to_dataframe(items)
+    return Response(df.to_csv(index=False), mimetype="text/csv",
+                     headers={"Content-Disposition": "attachment;filename=expired_items.csv"})
+
+@app.route("/reports/low-stock.csv")
+@login_required
+def report_low_stock():
+    items = [i for i in InventoryItem.query.all() if i.quantity < i.min_stock_threshold]
+    df = items_to_dataframe(items)
+    return Response(df.to_csv(index=False), mimetype="text/csv",
+                     headers={"Content-Disposition": "attachment;filename=low_stock_items.csv"})
+
+@app.route("/reports/full-inventory.csv")
+@login_required
+def report_full():
+    items = InventoryItem.query.all()
+    df = items_to_dataframe(items)
+    return Response(df.to_csv(index=False), mimetype="text/csv",
+                     headers={"Content-Disposition": "attachment;filename=full_inventory.csv"})
 
 if __name__ == "__main__":
     with app.app_context():

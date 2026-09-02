@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Reports</h2>
+<div class="card p-3 mb-3 shadow-sm">
+    <h5>Expired Items Report</h5>
+    <a href="/reports/expired.csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
+</div>
+<div class="card p-3 mb-3 shadow-sm">
+    <h5>Low Stock Report</h5>
+    <a href="/reports/low-stock.csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
+</div>
+<div class="card p-3 shadow-sm">
+    <h5>Full Inventory Report</h5>
+    <a href="/reports/full-inventory.csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
+</div>
+{% endblock %}
