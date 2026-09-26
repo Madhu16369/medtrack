@@ -14,6 +14,7 @@ from flask import abort
 from ml_risk import train_risk_model, predict_risk_for_item
 from ml_forecast import smart_reorder_quantity
 from models import fefo_priority_score
+from ml_anomaly import detect_anomalies
 
 def manager_required(f):
     @wraps(f)
@@ -421,6 +422,43 @@ def fefo_priority_list():
 
     ranked.sort(key=lambda x: -x[2])  # highest urgency first
     return render_template("fefo.html", ranked=ranked)
+
+@app.route("/ml/anomalies")
+@login_required
+@manager_required
+def ml_anomalies():
+    anomalies = detect_anomalies()
+    return render_template("ml_anomalies.html", anomalies=anomalies)
+
+@app.route("/suppliers")
+@login_required
+@manager_required
+def supplier_scoring():
+    items = InventoryItem.query.all()
+    supplier_stats = {}
+    for item in items:
+        supplier = item.supplier or "Unknown"
+        status, color, days_left = get_expiry_status(item)
+        if supplier not in supplier_stats:
+            supplier_stats[supplier] = {"total_items": 0, "expired_items": 0, "total_value": 0}
+        supplier_stats[supplier]["total_items"] += 1
+        supplier_stats[supplier]["total_value"] += item.quantity * item.unit_price
+        if status == "Expired":
+            supplier_stats[supplier]["expired_items"] += 1
+
+    results = []
+    for supplier, stats in supplier_stats.items():
+        expiry_rate = (stats["expired_items"] / stats["total_items"]) * 100 if stats["total_items"] else 0
+        if expiry_rate >= 20:
+            badge = "High Risk"
+        elif expiry_rate >= 5:
+            badge = "Medium Risk"
+        else:
+            badge = "Low Risk"
+        results.append((supplier, stats["total_items"], stats["expired_items"], round(expiry_rate, 1), round(stats["total_value"], 2), badge))
+
+    results.sort(key=lambda x: -x[3])
+    return render_template("suppliers.html", results=results)
 
 if __name__ == "__main__":
     with app.app_context():
