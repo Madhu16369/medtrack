@@ -1,6 +1,7 @@
 from extensions import db, login_manager
 from flask_login import UserMixin
 from datetime import datetime
+from datetime import date
 
 DEPARTMENTS = ["Pharmacy", "Surgery", "Emergency", "ICU", "General Ward", "Radiology"]
 SUPPLIERS = ["MedSupply Co.", "HealFast Pharma", "SafeHands Ltd.", "LifeLine Meds", "DiaCare Pharma", "OrthoTech Inc."]
@@ -40,8 +41,6 @@ class StockMovement(db.Model):
     item = db.relationship('InventoryItem', backref='movements')
     user = db.relationship('User', backref='movements')
 
-from datetime import date
-
 def get_expiry_status(item):
     days_left = (item.expiry_date - date.today()).days
     if days_left < 0:
@@ -54,3 +53,11 @@ def get_expiry_status(item):
         return "Notice", "info", days_left
     else:
         return "Safe", "success", days_left
+
+def fefo_priority_score(item, avg_daily_issue):
+    days_left = (item.expiry_date - date.today()).days
+    days_left = max(days_left, 0.1)  # avoid divide-by-zero
+    velocity = avg_daily_issue if avg_daily_issue > 0 else 0.1
+    # Higher score = more urgent to use/transfer first
+    score = (item.quantity / velocity) / days_left
+    return round(score, 3)

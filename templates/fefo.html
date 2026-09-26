@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-3">🥇 Priority Use List (FEFO Ranking)</h2>
+<p class="text-muted">Ranked by urgency: low remaining shelf life relative to how fast it's being used.</p>
+<div class="card p-3">
+<table class="table table-hover mb-0">
+    <tr><th>Rank</th><th>Item</th><th>Days Left</th><th>Urgency Score</th></tr>
+    {% for item, days_left, score in ranked %}
+    <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ item.name }}</td>
+        <td>{{ days_left }}</td>
+        <td>{{ score }}</td>
+    </tr>
+    {% endfor %}
+</table>
+</div>
+{% endblock %}

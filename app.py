@@ -13,6 +13,7 @@ from functools import wraps
 from flask import abort
 from ml_risk import train_risk_model, predict_risk_for_item
 from ml_forecast import smart_reorder_quantity
+from models import fefo_priority_score
 
 def manager_required(f):
     @wraps(f)
@@ -403,6 +404,23 @@ def ml_forecast_dashboard():
         results.append((item, forecast_14d, safety_stock, suggested))
     return render_template("ml_forecast.html", results=results)
 
+@app.route("/fefo")
+@login_required
+def fefo_priority_list():
+    items = InventoryItem.query.all()
+    ranked = []
+    for item in items:
+        status, color, days_left = get_expiry_status(item)
+        if status == "Safe":
+            continue
+        movements = StockMovement.query.filter_by(item_id=item.id, movement_type="Issue").all()
+        total_issued = sum(m.quantity for m in movements)
+        avg_daily_issue = total_issued / 180 if total_issued else 0
+        score = fefo_priority_score(item, avg_daily_issue)
+        ranked.append((item, days_left, score))
+
+    ranked.sort(key=lambda x: -x[2])  # highest urgency first
+    return render_template("fefo.html", ranked=ranked)
 
 if __name__ == "__main__":
     with app.app_context():
