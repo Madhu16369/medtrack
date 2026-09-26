@@ -10,6 +10,7 @@ import pandas as pd
 import barcode
 from barcode.writer import ImageWriter
 from PIL import Image, ImageDraw, ImageFont
+from flask import send_file
 
 from ml_risk import train_risk_model, predict_risk_for_item
 from ml_forecast import smart_reorder_quantity
@@ -411,9 +412,57 @@ def ml_risk_dashboard():
     results = []
     for item in items:
         risk, probability, action = predict_risk_for_item(model, feature_cols, item)
-        results.append((item, risk, probability, action))
+        status, color, days_left = get_expiry_status(item)
+        results.append((item, risk, probability, action, days_left))
 
-    return render_template("ml_risk.html", results=results, metrics=metrics)
+    critical_items = [r for r in results if r[2] > 70]
+    top_items = sorted(results, key=lambda x: -x[2])[:8]
+
+    return render_template("ml_risk.html", metrics=metrics,
+                            critical_count=len(critical_items), top_items=top_items)
+
+@app.route("/ml/risk/high")
+@login_required
+@manager_required
+def ml_risk_high():
+    model, feature_cols, metrics = train_risk_model()
+    if model is None:
+        flash(metrics)
+        return redirect("/dashboard")
+
+    items = InventoryItem.query.all()
+    results = []
+    for item in items:
+        risk, probability, action = predict_risk_for_item(model, feature_cols, item)
+        status, color, days_left = get_expiry_status(item)
+        if probability > 70:
+            results.append((item, risk, probability, action, days_left))
+    results.sort(key=lambda x: -x[2])
+    return render_template("ml_risk_high.html", results=results)
+
+@app.route("/ml/risk/export.xlsx")
+@login_required
+@manager_required
+def ml_risk_export():
+    model, feature_cols, metrics = train_risk_model()
+    if model is None:
+        flash(metrics)
+        return redirect("/dashboard")
+
+    items = InventoryItem.query.all()
+    rows = []
+    for item in items:
+        risk, probability, action = predict_risk_for_item(model, feature_cols, item)
+        status, color, days_left = get_expiry_status(item)
+        rows.append({
+            "Item": item.name, "Batch": item.batch_number, "Days Left": days_left,
+            "Risk Level": risk, "Risk %": probability, "Recommended Action": action
+        })
+    df = pd.DataFrame(rows).sort_values("Risk %", ascending=False)
+    os.makedirs(os.path.join("static", "exports"), exist_ok=True)
+    output_path = os.path.join("static", "exports", "wastage_risk_report.xlsx")
+    df.to_excel(output_path, index=False)
+    return send_file(output_path, as_attachment=True)
 
 
 @app.route("/ml/forecast")

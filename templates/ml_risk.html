@@ -3,20 +3,36 @@
 <h2 class="mb-3">🤖 Expiry / Wastage Risk Predictor</h2>
 <div class="card p-3 mb-3">
   <p class="mb-1"><b>Model:</b> Random Forest Classifier (trained on simulated stock-movement history)</p>
-  <p class="mb-1"><b>Test-set accuracy:</b> {{ (metrics.accuracy * 100) | round(1) }}%</p>
-  <details><summary>Full classification report</summary><pre>{{ metrics.report }}</pre></details>
+  <p class="mb-0"><b>Test-set accuracy:</b> {{ (metrics.accuracy * 100) | round(1) }}%</p>
 </div>
+
+<div class="row mb-3">
+  <div class="col-md-4">
+    <a href="/ml/risk/high" class="text-decoration-none">
+      <div class="card p-3 text-center bg-danger-subtle h-100">
+        <h6 class="mb-1">🔴 Critical Wastage Risk</h6>
+        <h3 class="mb-1">{{ critical_count }}</h3>
+        <small class="text-muted">Items with Risk &gt; 70% — click to view list</small>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="/ml/risk/export.xlsx" class="card p-3 text-center h-100 text-decoration-none d-flex align-items-center justify-content-center">
+      <span>📥 Download Full Risk Report<br><small class="text-muted">(Excel — all items)</small></span>
+    </a>
+  </div>
+</div>
+
 <div class="card p-3">
+<h5>Top Highest-Risk Items</h5>
 <table class="table table-hover mb-0">
-    <tr><th>Item</th><th>Risk Level</th><th>Probability</th><th>Recommended Action</th></tr>
-    {% for item, risk, probability, action in results %}
+    <tr><th>Item</th><th>Batch</th><th>Days Left</th><th>Risk %</th></tr>
+    {% for item, risk, probability, action, days_left in top_items %}
     <tr>
         <td>{{ item.name }}</td>
-        <td>
-          <span class="badge {{ 'bg-danger' if risk == 'High' else ('bg-warning text-dark' if risk == 'Medium' else 'bg-success') }}">{{ risk }}</span>
-        </td>
-        <td>{{ probability }}%</td>
-        <td>{{ action }}</td>
+        <td>{{ item.batch_number }}</td>
+        <td>{{ days_left }}</td>
+        <td><span class="badge {{ 'bg-danger' if risk == 'High' else ('bg-warning text-dark' if risk == 'Medium' else 'bg-success') }}">{{ probability }}%</span></td>
     </tr>
     {% endfor %}
 </table>

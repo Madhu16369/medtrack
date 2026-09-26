@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-3">🔴 Critical Wastage Risk Items (Risk &gt; 70%)</h2>
+<div class="card p-3">
+<table class="table table-hover mb-0">
+    <tr><th>Item</th><th>Batch</th><th>Days Left</th><th>Risk %</th><th>Recommended Action</th></tr>
+    {% for item, risk, probability, action, days_left in results %}
+    <tr>
+        <td>{{ item.name }}</td>
+        <td>{{ item.batch_number }}</td>
+        <td>{{ days_left }}</td>
+        <td><span class="badge bg-danger">{{ probability }}%</span></td>
+        <td>{{ action }}</td>
+    </tr>
+    {% endfor %}
+</table>
+</div>
+<a href="/ml/risk" class="btn btn-secondary mt-3">← Back to Risk Dashboard</a>
+{% endblock %}
