@@ -12,7 +12,7 @@ from barcode.writer import ImageWriter
 from PIL import Image, ImageDraw, ImageFont
 from flask import send_file
 from models import Order
-
+from models import RemovedItem
 from ml_risk import train_risk_model, predict_risk_for_item
 from ml_forecast import smart_reorder_quantity
 from ml_anomaly import detect_anomalies
@@ -220,10 +220,41 @@ def edit_item(item_id):
 @manager_required
 def delete_item(item_id):
     item = InventoryItem.query.get_or_404(item_id)
+    StockMovement.query.filter_by(item_id=item.id).delete()
     db.session.delete(item)
     db.session.commit()
     flash("Item deleted.")
     return redirect("/inventory")
+
+@app.route("/inventory/remove-expired/<int:item_id>", methods=["POST"])
+@login_required
+@manager_required
+def remove_expired_item(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    status, color, days_left = get_expiry_status(item)
+    if status != "Expired":
+        flash("Only expired items can be removed this way.")
+        return redirect("/alerts")
+
+    archived = RemovedItem(
+        name=item.name, batch_number=item.batch_number, quantity=item.quantity,
+        expiry_date=item.expiry_date, department=item.department, unit_price=item.unit_price,
+        removed_by=current_user.id, reason="Expired - physically discarded"
+    )
+    db.session.add(archived)
+
+    StockMovement.query.filter_by(item_id=item.id).delete()
+    db.session.delete(item)
+    db.session.commit()
+    flash(f"{archived.name} removed from active inventory and logged in disposal history.")
+    return redirect("/alerts")
+
+@app.route("/inventory/disposal-history")
+@login_required
+@manager_required
+def disposal_history():
+    removed = RemovedItem.query.order_by(RemovedItem.removed_at.desc()).all()
+    return render_template("disposal_history.html", removed=removed)
 
 
 @app.route("/backfill-qr")
@@ -545,7 +576,6 @@ def regenerate_all_barcodes():
         item.qr_code_path = generate_barcode_image(item)
     db.session.commit()
     return f"Regenerated barcodes for {len(items)} items."
-
 
 @app.route("/orders")
 @login_required

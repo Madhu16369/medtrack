@@ -83,3 +83,15 @@ class Order(db.Model):
 
     item = db.relationship('InventoryItem')
     user = db.relationship('User')
+
+class RemovedItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120))
+    batch_number = db.Column(db.String(80))
+    quantity = db.Column(db.Integer)
+    expiry_date = db.Column(db.Date)
+    department = db.Column(db.String(80))
+    unit_price = db.Column(db.Float, default=0.0)
+    removed_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    removed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reason = db.Column(db.String(200))

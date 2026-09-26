@@ -3,14 +3,24 @@
 <h2 class="mb-3">⏰ Expiry Alerts</h2>
 <div class="card p-3">
 <table class="table table-hover mb-0">
-    <tr><th>Name</th><th>Batch</th><th>Expiry Date</th><th>Days Left</th><th>Status</th></tr>
+    <tr>
+        <th>Name</th><th>Batch</th><th>Expiry Date</th><th>Days Left</th><th>Status</th>
+    </tr>
     {% for item, status, color, days_left in alerts %}
     <tr>
         <td>{{ item.name }}</td>
         <td>{{ item.batch_number }}</td>
         <td>{{ item.expiry_date }}</td>
         <td>{{ days_left }}</td>
-        <td><span class="badge bg-{{ color }}">{{ status }}</span></td>
+        <td>
+            <span class="badge bg-{{ color }}">{{ status }}</span>
+            {% if status == "Expired" and current_user.role == "Manager" %}
+            <form method="POST" action="/inventory/remove-expired/{{ item.id }}" class="d-inline"
+                  onsubmit="return confirm('Confirm this item has been physically discarded before removing it from the system.');">
+                <button type="submit" class="btn btn-sm btn-outline-danger ms-2">🗑 Remove</button>
+            </form>
+            {% endif %}
+        </td>
     </tr>
     {% endfor %}
 </table>
