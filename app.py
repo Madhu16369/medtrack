@@ -1,20 +1,28 @@
 from flask import Flask, render_template, request, redirect, flash, Response
 from flask_login import login_user, logout_user, login_required, current_user
 from extensions import db, login_manager
-from models import User, InventoryItem, StockMovement, get_expiry_status
+from models import User, InventoryItem, StockMovement, get_expiry_status, DEPARTMENTS, SUPPLIERS, fefo_priority_score
 from datetime import datetime
+from functools import wraps
 import bcrypt
-import qrcode
 import os
 import pandas as pd
-from flask import Response
-from models import DEPARTMENTS, SUPPLIERS
-from functools import wraps
-from flask import abort
+import barcode
+from barcode.writer import ImageWriter
+from PIL import Image, ImageDraw, ImageFont
+
 from ml_risk import train_risk_model, predict_risk_for_item
 from ml_forecast import smart_reorder_quantity
-from models import fefo_priority_score
 from ml_anomaly import detect_anomalies
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'change-this-to-something-random-later'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///medtrack.db'
+
+db.init_app(app)
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
 
 def manager_required(f):
     @wraps(f)
@@ -26,15 +34,6 @@ def manager_required(f):
     return wrapper
 
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'change-this-to-something-random-later'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///medtrack.db'
-
-db.init_app(app)
-login_manager.init_app(app)
-login_manager.login_view = 'login'
-
-
 @app.context_processor
 def inject_alert_count():
     if current_user.is_authenticated:
@@ -42,6 +41,30 @@ def inject_alert_count():
         count = sum(1 for item in items if get_expiry_status(item)[0] != "Safe")
         return dict(alert_count=count)
     return dict(alert_count=0)
+
+
+def generate_barcode_image(item):
+    code = barcode.get('code128', f"ITEM:{item.id}", writer=ImageWriter())
+    temp_path = os.path.join("static", "barcodes", f"temp_{item.id}")
+    saved_file = code.save(temp_path, options={"write_text": False, "quiet_zone": 2})
+
+    barcode_img = Image.open(saved_file)
+    label_height = 60
+    canvas = Image.new("RGB", (barcode_img.width, barcode_img.height + label_height), "white")
+    draw = ImageDraw.Draw(canvas)
+    try:
+        font = ImageFont.truetype("arial.ttf", 18)
+    except Exception:
+        font = ImageFont.load_default()
+
+    draw.text((10, 5), item.name[:40], fill="black", font=font)
+    draw.text((10, 30), f"Batch: {item.batch_number}", fill="black", font=font)
+    canvas.paste(barcode_img, (0, label_height))
+
+    final_path = os.path.join("static", "barcodes", f"item_{item.id}.png")
+    canvas.save(final_path)
+    os.remove(saved_file)
+    return final_path
 
 
 @app.route("/")
@@ -125,6 +148,7 @@ def dashboard():
         dept_values=list(dept_totals.values())
     )
 
+
 @app.route("/inventory")
 @login_required
 def inventory_list():
@@ -139,7 +163,6 @@ def inventory_list():
 
     items = query.all()
     return render_template("inventory_list.html", items=items, departments=DEPARTMENTS)
-
 
 
 @app.route("/inventory/add", methods=["GET", "POST"])
@@ -161,12 +184,7 @@ def add_item():
         db.session.add(new_item)
         db.session.flush()
 
-        qr_data = f"ITEM:{new_item.id}"
-        qr_img = qrcode.make(qr_data)
-        qr_filename = f"item_{new_item.id}.png"
-        qr_path = os.path.join("static", "qrcodes", qr_filename)
-        qr_img.save(qr_path)
-        new_item.qr_code_path = qr_path
+        new_item.qr_code_path = generate_barcode_image(new_item)
 
         db.session.commit()
         flash("Item added successfully!")
@@ -208,17 +226,14 @@ def delete_item(item_id):
 
 @app.route("/backfill-qr")
 @login_required
+@manager_required
 def backfill_qr():
     items = InventoryItem.query.filter_by(qr_code_path=None).all()
     for item in items:
-        qr_data = f"ITEM:{item.id}"
-        qr_img = qrcode.make(qr_data)
-        qr_filename = f"item_{item.id}.png"
-        qr_path = os.path.join("static", "qrcodes", qr_filename)
-        qr_img.save(qr_path)
-        item.qr_code_path = qr_path
+        item.qr_code_path = generate_barcode_image(item)
     db.session.commit()
-    return "Backfilled QR codes for all items without one."
+    return "Backfilled barcodes for all items without one."
+
 
 @app.route("/inventory/template.csv")
 @login_required
@@ -231,6 +246,7 @@ def inventory_template():
     }])
     return Response(sample.to_csv(index=False), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=inventory_template.csv"})
+
 
 @app.route("/inventory/upload", methods=["GET", "POST"])
 @login_required
@@ -268,10 +284,7 @@ def upload_inventory():
                 )
                 db.session.add(new_item)
                 db.session.flush()
-                qr_img = qrcode.make(f"ITEM:{new_item.id}")
-                qr_path = os.path.join("static", "qrcodes", f"item_{new_item.id}.png")
-                qr_img.save(qr_path)
-                new_item.qr_code_path = qr_path
+                new_item.qr_code_path = generate_barcode_image(new_item)
                 added += 1
             except Exception:
                 skipped += 1
@@ -288,7 +301,6 @@ def scan():
     return render_template("scan.html")
 
 
-
 @app.route("/scan/lookup")
 @login_required
 def scan_lookup():
@@ -297,7 +309,7 @@ def scan_lookup():
         item_id = int(code.replace("ITEM:", ""))
         item = InventoryItem.query.get_or_404(item_id)
         return render_template("scan_result.html", item=item)
-    flash("QR code not recognized.")
+    flash("Barcode not recognized.")
     return redirect("/scan")
 
 
@@ -336,11 +348,13 @@ def alerts():
             alerts_data.append((item, status, color, days_left))
     return render_template("alerts.html", alerts=alerts_data)
 
+
 @app.route("/reports")
 @login_required
 @manager_required
 def reports():
     return render_template("reports.html")
+
 
 def items_to_dataframe(items):
     rows = []
@@ -353,29 +367,36 @@ def items_to_dataframe(items):
         })
     return pd.DataFrame(rows)
 
+
 @app.route("/reports/expired.csv")
 @login_required
+@manager_required
 def report_expired():
     items = [i for i in InventoryItem.query.all() if get_expiry_status(i)[0] == "Expired"]
     df = items_to_dataframe(items)
     return Response(df.to_csv(index=False), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=expired_items.csv"})
 
+
 @app.route("/reports/low-stock.csv")
 @login_required
+@manager_required
 def report_low_stock():
     items = [i for i in InventoryItem.query.all() if i.quantity < i.min_stock_threshold]
     df = items_to_dataframe(items)
     return Response(df.to_csv(index=False), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=low_stock_items.csv"})
 
+
 @app.route("/reports/full-inventory.csv")
 @login_required
+@manager_required
 def report_full():
     items = InventoryItem.query.all()
     df = items_to_dataframe(items)
     return Response(df.to_csv(index=False), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=full_inventory.csv"})
+
 
 @app.route("/ml/risk")
 @login_required
@@ -394,6 +415,7 @@ def ml_risk_dashboard():
 
     return render_template("ml_risk.html", results=results, metrics=metrics)
 
+
 @app.route("/ml/forecast")
 @login_required
 @manager_required
@@ -404,6 +426,7 @@ def ml_forecast_dashboard():
         forecast_14d, safety_stock, suggested = smart_reorder_quantity(item)
         results.append((item, forecast_14d, safety_stock, suggested))
     return render_template("ml_forecast.html", results=results)
+
 
 @app.route("/fefo")
 @login_required
@@ -420,8 +443,9 @@ def fefo_priority_list():
         score = fefo_priority_score(item, avg_daily_issue)
         ranked.append((item, days_left, score))
 
-    ranked.sort(key=lambda x: -x[2])  # highest urgency first
+    ranked.sort(key=lambda x: -x[2])
     return render_template("fefo.html", ranked=ranked)
+
 
 @app.route("/ml/anomalies")
 @login_required
@@ -429,6 +453,7 @@ def fefo_priority_list():
 def ml_anomalies():
     anomalies = detect_anomalies()
     return render_template("ml_anomalies.html", anomalies=anomalies)
+
 
 @app.route("/suppliers")
 @login_required
@@ -455,10 +480,21 @@ def supplier_scoring():
             badge = "Medium Risk"
         else:
             badge = "Low Risk"
-        results.append((supplier, stats["total_items"], stats["expired_items"], round(expiry_rate, 1), round(stats["total_value"], 2), badge))
+        results.append((supplier, stats["total_items"], stats["expired_items"],
+                         round(expiry_rate, 1), round(stats["total_value"], 2), badge))
 
     results.sort(key=lambda x: -x[3])
     return render_template("suppliers.html", results=results)
+
+@app.route("/regenerate-all-barcodes")
+@login_required
+@manager_required
+def regenerate_all_barcodes():
+    items = InventoryItem.query.all()
+    for item in items:
+        item.qr_code_path = generate_barcode_image(item)
+    db.session.commit()
+    return f"Regenerated barcodes for {len(items)} items."
 
 if __name__ == "__main__":
     with app.app_context():
