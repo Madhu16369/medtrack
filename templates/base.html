@@ -11,7 +11,10 @@
     <span class="navbar-brand">🏥 MedTrack</span>
     {% if current_user.is_authenticated %}
     <div class="d-flex align-items-center">
-        <span class="text-white me-3">{{ current_user.username }} ({{ current_user.role }})</span>
+        <span class="badge {{ 'bg-warning text-dark' if current_user.role == 'Manager' else 'bg-info text-dark' }} me-2">
+            {{ current_user.role }}
+        </span>
+        <span class="text-white me-3">{{ current_user.username }}</span>
         <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
     </div>
     {% endif %}
@@ -27,7 +30,9 @@
           ⏰ Expiry Alerts
           {% if alert_count > 0 %}<span class="badge bg-danger">{{ alert_count }}</span>{% endif %}
         </a>
+        {% if current_user.role == "Manager" %}
         <a href="/reports" class="d-block text-white mb-3 text-decoration-none">📄 Reports</a>
+        {% endif %}
     </div>
     {% endif %}
     <div class="container-fluid p-4">

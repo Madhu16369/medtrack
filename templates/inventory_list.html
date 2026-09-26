@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Inventory Items</h2>
+
+{% if current_user.role == "Manager" %}
+<a href="/inventory/add" class="btn btn-primary mb-3">+ Add New Item</a>
+<a href="/inventory/upload" class="btn btn-outline-primary mb-3">📤 Bulk Upload (Excel)</a>
+{% endif %}
+
 <form method="GET" class="row g-2 mb-3">
     <div class="col-auto">
         <input type="text" name="q" class="form-control" placeholder="Search by item name"
@@ -16,8 +22,7 @@
     </div>
     <div class="col-auto"><button class="btn btn-secondary">Search</button></div>
 </form>
-<a href="/inventory/add" class="btn btn-primary mb-3">+ Add New Item</a>
-<a href="/inventory/upload" class="btn btn-outline-primary mb-3">📤 Bulk Upload (Excel)</a>
+
 <table class="table table-bordered">
     <tr>
         <th>Name</th><th>Batch</th><th>Qty</th><th>Expiry</th>
@@ -39,9 +44,13 @@
           {% endif %}
         </td>
         <td>
+            {% if current_user.role == "Manager" %}
             <a href="/inventory/edit/{{ item.id }}" class="btn btn-sm btn-warning">Edit</a>
             <a href="/inventory/delete/{{ item.id }}" class="btn btn-sm btn-danger"
                onclick="return confirm('Delete this item?');">Delete</a>
+            {% else %}
+            <span class="text-muted small">View only</span>
+            {% endif %}
         </td>
     </tr>
     {% endfor %}

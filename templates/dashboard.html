@@ -3,6 +3,12 @@
 <h2>Welcome, {{ current_user.username }} 👋</h2>
 <p class="text-muted">Role: {{ current_user.role }}</p>
 
+{% if current_user.role == "Manager" %}
+<div class="alert alert-warning">🔑 You are logged in as <b>Inventory Manager</b> — full access enabled.</div>
+{% else %}
+<div class="alert alert-info">👩‍⚕️ You are logged in as <b>Nurse</b> — view, scan, and stock-update access only.</div>
+{% endif %}
+
 <div class="row mt-3">
     <div class="col-md-3">
         <div class="card p-3 shadow-sm text-center">
@@ -36,19 +42,23 @@
     <div class="col-md-6">
         <div class="card p-3 shadow-sm">
             <h5>📋 Purchase Order Recommendations</h5>
-            {% if reorder_suggestions %}
-            <table class="table table-sm">
-                <tr><th>Item</th><th>Current Qty</th><th>Suggested Reorder</th></tr>
-                {% for item, suggested_qty in reorder_suggestions %}
-                <tr>
-                    <td>{{ item.name }}</td>
-                    <td>{{ item.quantity }}</td>
-                    <td><b>{{ suggested_qty }}</b></td>
-                </tr>
-                {% endfor %}
-            </table>
+            {% if current_user.role == "Manager" %}
+                {% if reorder_suggestions %}
+                <table class="table table-sm">
+                    <tr><th>Item</th><th>Current Qty</th><th>Suggested Reorder</th></tr>
+                    {% for item, suggested_qty in reorder_suggestions %}
+                    <tr>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td><b>{{ suggested_qty }}</b></td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% else %}
+                <p class="text-muted">No reorders needed right now.</p>
+                {% endif %}
             {% else %}
-            <p class="text-muted">No reorders needed right now.</p>
+                <p class="text-muted small">Reorder decisions are managed by the Inventory Manager.</p>
             {% endif %}
         </div>
     </div>

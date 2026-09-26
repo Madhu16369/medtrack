@@ -9,6 +9,18 @@ import os
 import pandas as pd
 from flask import Response
 from models import DEPARTMENTS, SUPPLIERS
+from functools import wraps
+from flask import abort
+
+def manager_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if current_user.role != "Manager":
+            flash("This action is restricted to Inventory Managers.")
+            return redirect("/dashboard")
+        return f(*args, **kwargs)
+    return wrapper
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'change-this-to-something-random-later'
@@ -128,6 +140,7 @@ def inventory_list():
 
 @app.route("/inventory/add", methods=["GET", "POST"])
 @login_required
+@manager_required
 def add_item():
     if request.method == "POST":
         new_item = InventoryItem(
@@ -159,6 +172,7 @@ def add_item():
 
 @app.route("/inventory/edit/<int:item_id>", methods=["GET", "POST"])
 @login_required
+@manager_required
 def edit_item(item_id):
     item = InventoryItem.query.get_or_404(item_id)
     if request.method == "POST":
@@ -179,6 +193,7 @@ def edit_item(item_id):
 
 @app.route("/inventory/delete/<int:item_id>")
 @login_required
+@manager_required
 def delete_item(item_id):
     item = InventoryItem.query.get_or_404(item_id)
     db.session.delete(item)
@@ -215,6 +230,7 @@ def inventory_template():
 
 @app.route("/inventory/upload", methods=["GET", "POST"])
 @login_required
+@manager_required
 def upload_inventory():
     if request.method == "POST":
         file = request.files.get("excel_file")
@@ -318,6 +334,7 @@ def alerts():
 
 @app.route("/reports")
 @login_required
+@manager_required
 def reports():
     return render_template("reports.html")
 
