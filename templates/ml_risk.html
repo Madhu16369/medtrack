@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-3">🤖 Expiry / Wastage Risk Predictor</h2>
+<div class="card p-3 mb-3">
+  <p class="mb-1"><b>Model:</b> Random Forest Classifier (trained on simulated stock-movement history)</p>
+  <p class="mb-1"><b>Test-set accuracy:</b> {{ (metrics.accuracy * 100) | round(1) }}%</p>
+  <details><summary>Full classification report</summary><pre>{{ metrics.report }}</pre></details>
+</div>
+<div class="card p-3">
+<table class="table table-hover mb-0">
+    <tr><th>Item</th><th>Risk Level</th><th>Probability</th><th>Recommended Action</th></tr>
+    {% for item, risk, probability, action in results %}
+    <tr>
+        <td>{{ item.name }}</td>
+        <td>
+          <span class="badge {{ 'bg-danger' if risk == 'High' else ('bg-warning text-dark' if risk == 'Medium' else 'bg-success') }}">{{ risk }}</span>
+        </td>
+        <td>{{ probability }}%</td>
+        <td>{{ action }}</td>
+    </tr>
+    {% endfor %}
+</table>
+</div>
+{% endblock %}

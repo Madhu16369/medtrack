@@ -11,6 +11,8 @@ from flask import Response
 from models import DEPARTMENTS, SUPPLIERS
 from functools import wraps
 from flask import abort
+from ml_risk import train_risk_model, predict_risk_for_item
+
 
 def manager_required(f):
     @wraps(f)
@@ -372,6 +374,23 @@ def report_full():
     df = items_to_dataframe(items)
     return Response(df.to_csv(index=False), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=full_inventory.csv"})
+
+@app.route("/ml/risk")
+@login_required
+@manager_required
+def ml_risk_dashboard():
+    model, feature_cols, metrics = train_risk_model()
+    if model is None:
+        flash(metrics)
+        return redirect("/dashboard")
+
+    items = InventoryItem.query.all()
+    results = []
+    for item in items:
+        risk, probability, action = predict_risk_for_item(model, feature_cols, item)
+        results.append((item, risk, probability, action))
+
+    return render_template("ml_risk.html", results=results, metrics=metrics)
 
 if __name__ == "__main__":
     with app.app_context():
