@@ -1,16 +1,27 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Reports</h2>
-<div class="card p-3 mb-3 shadow-sm">
-    <h5>Expired Items Report</h5>
-    <a href="/reports/expired.csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
-</div>
-<div class="card p-3 mb-3 shadow-sm">
-    <h5>Low Stock Report</h5>
-    <a href="/reports/low-stock.csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
-</div>
-<div class="card p-3 shadow-sm">
-    <h5>Full Inventory Report</h5>
-    <a href="/reports/full-inventory.csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
+<h2 class="mb-3">📄 Reports</h2>
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h5>Expired Items</h5>
+            <p class="text-muted small">All items past their expiry date.</p>
+            <a href="/reports/expired.csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h5>Low Stock</h5>
+            <p class="text-muted small">Items below their minimum threshold.</p>
+            <a href="/reports/low-stock.csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h5>Full Inventory</h5>
+            <p class="text-muted small">Complete stock listing.</p>
+            <a href="/reports/full-inventory.csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
+        </div>
+    </div>
 </div>
 {% endblock %}

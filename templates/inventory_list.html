@@ -1,29 +1,35 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Inventory Items</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">📦 Inventory</h2>
+  {% if current_user.role == "Manager" %}
+  <div>
+    <a href="/inventory/add" class="btn btn-primary">+ Add Item</a>
+    <a href="/inventory/upload" class="btn btn-outline-primary">📤 Bulk Upload</a>
+  </div>
+  {% endif %}
+</div>
 
-{% if current_user.role == "Manager" %}
-<a href="/inventory/add" class="btn btn-primary mb-3">+ Add New Item</a>
-<a href="/inventory/upload" class="btn btn-outline-primary mb-3">📤 Bulk Upload (Excel)</a>
-{% endif %}
+<div class="card p-3 mb-3">
+  <form method="GET" class="row g-2">
+      <div class="col-auto">
+          <input type="text" name="q" class="form-control" placeholder="Search by item name"
+                 value="{{ request.args.get('q', '') }}">
+      </div>
+      <div class="col-auto">
+          <select name="department" class="form-control">
+              <option value="">All Departments</option>
+              {% for d in departments %}
+              <option value="{{ d }}" {% if request.args.get('department') == d %}selected{% endif %}>{{ d }}</option>
+              {% endfor %}
+          </select>
+      </div>
+      <div class="col-auto"><button class="btn btn-secondary">Search</button></div>
+  </form>
+</div>
 
-<form method="GET" class="row g-2 mb-3">
-    <div class="col-auto">
-        <input type="text" name="q" class="form-control" placeholder="Search by item name"
-               value="{{ request.args.get('q', '') }}">
-    </div>
-    <div class="col-auto">
-        <select name="department" class="form-control">
-            <option value="">All Departments</option>
-            {% for d in departments %}
-            <option value="{{ d }}" {% if request.args.get('department') == d %}selected{% endif %}>{{ d }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="col-auto"><button class="btn btn-secondary">Search</button></div>
-</form>
-
-<table class="table table-bordered">
+<div class="card p-3">
+<table class="table table-hover align-middle mb-0">
     <tr>
         <th>Name</th><th>Batch</th><th>Qty</th><th>Expiry</th>
         <th>Department</th><th>QR Code</th><th>Actions</th>
@@ -34,19 +40,16 @@
         <td>{{ item.batch_number }}</td>
         <td>{{ item.quantity }}</td>
         <td>{{ item.expiry_date }}</td>
-        <td>{{ item.department }}</td>
+        <td><span class="badge bg-secondary">{{ item.department }}</span></td>
         <td>
           {% if item.qr_code_path %}
-            <img src="/{{ item.qr_code_path }}" width="60">
-            <a href="/{{ item.qr_code_path }}" download class="d-block small">Download</a>
-          {% else %}
-            N/A
-          {% endif %}
+            <img src="/{{ item.qr_code_path }}" width="50">
+          {% else %}N/A{% endif %}
         </td>
         <td>
             {% if current_user.role == "Manager" %}
-            <a href="/inventory/edit/{{ item.id }}" class="btn btn-sm btn-warning">Edit</a>
-            <a href="/inventory/delete/{{ item.id }}" class="btn btn-sm btn-danger"
+            <a href="/inventory/edit/{{ item.id }}" class="btn btn-sm btn-outline-warning">Edit</a>
+            <a href="/inventory/delete/{{ item.id }}" class="btn btn-sm btn-outline-danger"
                onclick="return confirm('Delete this item?');">Delete</a>
             {% else %}
             <span class="text-muted small">View only</span>
@@ -55,4 +58,5 @@
     </tr>
     {% endfor %}
 </table>
+</div>
 {% endblock %}
