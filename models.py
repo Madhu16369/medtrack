@@ -73,3 +73,13 @@ def fefo_priority_score(item, avg_daily_issue):
     score = (item.quantity / velocity) / days_left
     return round(score, 3)
 
+class Order(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('inventory_item.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(20), default="Placed")  # Placed / Received / Cancelled
+    ordered_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    item = db.relationship('InventoryItem')
+    user = db.relationship('User')

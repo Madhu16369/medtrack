@@ -11,6 +11,7 @@ import barcode
 from barcode.writer import ImageWriter
 from PIL import Image, ImageDraw, ImageFont
 from flask import send_file
+from models import Order
 
 from ml_risk import train_risk_model, predict_risk_for_item
 from ml_forecast import smart_reorder_quantity
@@ -544,6 +545,37 @@ def regenerate_all_barcodes():
         item.qr_code_path = generate_barcode_image(item)
     db.session.commit()
     return f"Regenerated barcodes for {len(items)} items."
+
+
+@app.route("/orders")
+@login_required
+@manager_required
+def orders_list():
+    orders = Order.query.order_by(Order.created_at.desc()).all()
+    return render_template("orders.html", orders=orders)
+
+@app.route("/orders/place/<int:item_id>", methods=["POST"])
+@login_required
+@manager_required
+def place_order(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    qty = int(request.form["quantity"])
+    order = Order(item_id=item.id, quantity=qty, ordered_by=current_user.id)
+    db.session.add(order)
+    db.session.commit()
+    flash(f"Order placed for {qty} units of {item.name}.")
+    return redirect("/ml/forecast")
+
+@app.route("/orders/<int:order_id>/mark-received", methods=["POST"])
+@login_required
+@manager_required
+def mark_order_received(order_id):
+    order = Order.query.get_or_404(order_id)
+    order.status = "Received"
+    order.item.quantity += order.quantity
+    db.session.commit()
+    flash("Order marked as received — stock updated automatically.")
+    return redirect("/orders")
 
 if __name__ == "__main__":
     with app.app_context():
