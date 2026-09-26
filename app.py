@@ -12,7 +12,7 @@ from models import DEPARTMENTS, SUPPLIERS
 from functools import wraps
 from flask import abort
 from ml_risk import train_risk_model, predict_risk_for_item
-
+from ml_forecast import smart_reorder_quantity
 
 def manager_required(f):
     @wraps(f)
@@ -391,6 +391,18 @@ def ml_risk_dashboard():
         results.append((item, risk, probability, action))
 
     return render_template("ml_risk.html", results=results, metrics=metrics)
+
+@app.route("/ml/forecast")
+@login_required
+@manager_required
+def ml_forecast_dashboard():
+    items = InventoryItem.query.all()
+    results = []
+    for item in items:
+        forecast_14d, safety_stock, suggested = smart_reorder_quantity(item)
+        results.append((item, forecast_14d, safety_stock, suggested))
+    return render_template("ml_forecast.html", results=results)
+
 
 if __name__ == "__main__":
     with app.app_context():

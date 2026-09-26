@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-3">📈 Demand Forecasting & Smart Reorder</h2>
+<p class="text-muted">Random Forest regression on lagged daily-issue history (14-day horizon).</p>
+<div class="card p-3">
+<table class="table table-hover mb-0">
+    <tr><th>Item</th><th>Current Stock</th><th>Forecasted 14-day Demand</th><th>Safety Stock</th><th>Suggested Reorder</th></tr>
+    {% for item, forecast_14d, safety_stock, suggested in results %}
+    <tr>
+        <td>{{ item.name }}</td>
+        <td>{{ item.quantity }}</td>
+        <td>{{ forecast_14d }}</td>
+        <td>{{ safety_stock }}</td>
+        <td><b>{{ suggested }}</b></td>
+    </tr>
+    {% endfor %}
+</table>
+</div>
+{% endblock %}
