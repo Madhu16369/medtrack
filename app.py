@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, flash, Response
 from flask_login import login_user, logout_user, login_required, current_user
 from extensions import db, login_manager
-from models import User, InventoryItem, StockMovement, get_expiry_status, DEPARTMENTS, SUPPLIERS, fefo_priority_score
+from models import User, InventoryItem, StockMovement, get_expiry_status, DEPARTMENTS, SUPPLIERS, STORAGE_LOCATIONS, fefo_priority_score
 from datetime import datetime
 from functools import wraps
 import bcrypt
@@ -189,7 +189,7 @@ def add_item():
         db.session.commit()
         flash("Item added successfully!")
         return redirect("/inventory")
-    return render_template("add_item.html", departments=DEPARTMENTS, suppliers=SUPPLIERS)
+    return render_template("add_item.html", departments=DEPARTMENTS, suppliers=SUPPLIERS, storage_locations=STORAGE_LOCATIONS)
 
 
 @app.route("/inventory/edit/<int:item_id>", methods=["GET", "POST"])
@@ -210,7 +210,7 @@ def edit_item(item_id):
         db.session.commit()
         flash("Item updated successfully!")
         return redirect("/inventory")
-    return render_template("edit_item.html", item=item)
+        return render_template("edit_item.html", item=item, departments=DEPARTMENTS, suppliers=SUPPLIERS, storage_locations=STORAGE_LOCATIONS)
 
 
 @app.route("/inventory/delete/<int:item_id>")

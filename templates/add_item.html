@@ -4,28 +4,56 @@
 <form method="POST">
     <div class="mb-3"><label>Item Name</label>
       <input type="text" name="name" class="form-control" required></div>
+
     <div class="mb-3"><label>Batch Number</label>
       <input type="text" name="batch_number" class="form-control" required></div>
+
     <div class="mb-3"><label>Quantity</label>
       <input type="number" name="quantity" class="form-control" required></div>
+
     <div class="mb-3"><label>Expiry Date</label>
       <input type="date" name="expiry_date" class="form-control" required></div>
+
     <div class="mb-3"><label>Supplier</label>
       <select name="supplier" class="form-control">
         {% for s in suppliers %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
       </select>
     </div>
-    <div class="mb-3"><label>Storage Location</label>
-      <input type="text" name="storage_location" class="form-control"></div>
+
     <div class="mb-3"><label>Department</label>
-      <select name="department" class="form-control">
+      <select name="department" id="department" class="form-control" onchange="updateLocations()">
         {% for d in departments %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
       </select>
     </div>
+
+    <div class="mb-3"><label>Storage Location</label>
+      <select name="storage_location" id="storage_location" class="form-control"></select>
+    </div>
+
     <div class="mb-3"><label>Unit Price</label>
       <input type="number" step="0.01" name="unit_price" class="form-control"></div>
+
     <div class="mb-3"><label>Minimum Stock Threshold</label>
       <input type="number" name="min_stock_threshold" class="form-control" value="10"></div>
+
     <button type="submit" class="btn btn-primary">Save Item</button>
 </form>
+
+<script>
+const storageLocations = {{ storage_locations | tojson }};
+
+function updateLocations() {
+    const dept = document.getElementById("department").value;
+    const locSelect = document.getElementById("storage_location");
+    locSelect.innerHTML = "";
+    (storageLocations[dept] || []).forEach(loc => {
+        const opt = document.createElement("option");
+        opt.value = loc;
+        opt.textContent = loc;
+        locSelect.appendChild(opt);
+    });
+}
+
+window.addEventListener("DOMContentLoaded", updateLocations);
+</script>
 {% endblock %}

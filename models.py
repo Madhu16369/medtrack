@@ -5,6 +5,16 @@ from datetime import date
 
 DEPARTMENTS = ["Pharmacy", "Surgery", "Emergency", "ICU", "General Ward", "Radiology"]
 SUPPLIERS = ["MedSupply Co.", "HealFast Pharma", "SafeHands Ltd.", "LifeLine Meds", "DiaCare Pharma", "OrthoTech Inc."]
+STORAGE_LOCATIONS = {
+    "Pharmacy": ["Shelf A1", "Shelf A2", "Shelf A3", "Fridge A"],
+    "Surgery": ["Store Room 1", "Store Room 2", "Sterile Cabinet"],
+    "Emergency": ["Emergency Cart", "Store Room 3"],
+    "ICU": ["ICU Fridge", "ICU Cabinet"],
+    "General Ward": ["Ward Shelf 1", "Ward Shelf 2"],
+    "Radiology": ["Radiology Store"],
+}
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -15,6 +25,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False)  # "Manager" or "Nurse"
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    department = db.Column(db.String(80))  # used for Nurses to filter "my department" views
 
 class InventoryItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -61,3 +72,4 @@ def fefo_priority_score(item, avg_daily_issue):
     # Higher score = more urgent to use/transfer first
     score = (item.quantity / velocity) / days_left
     return round(score, 3)
+
