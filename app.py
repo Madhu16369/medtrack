@@ -389,6 +389,108 @@ def alerts():
 def reports():
     return render_template("reports.html")
 
+@app.route("/reports/expired-detailed.csv")
+@login_required
+@manager_required
+def report_expired_detailed():
+    items = InventoryItem.query.all()
+    rows = []
+    for i in items:
+        status, color, days_left = get_expiry_status(i)
+        if status == "Expired":
+            rows.append({
+                "Name": i.name, "Batch": i.batch_number, "Qty": i.quantity,
+                "Expiry Date": i.expiry_date, "Days Overdue": abs(days_left),
+                "Value": round(i.quantity * i.unit_price, 2),
+                "Department": i.department, "Storage Location": i.storage_location
+            })
+    df = pd.DataFrame(rows)
+    return Response(df.to_csv(index=False), mimetype="text/csv",
+                     headers={"Content-Disposition": "attachment;filename=expired_items_detailed.csv"})
+
+@app.route("/reports/near-expiry.csv")
+@login_required
+@manager_required
+def report_near_expiry():
+    model, feature_cols, metrics = train_risk_model()
+    items = InventoryItem.query.all()
+    rows = []
+    for i in items:
+        status, color, days_left = get_expiry_status(i)
+        if status in ("Critical", "Warning", "Notice"):
+            probability = 0
+            if model:
+                _, probability, _ = predict_risk_for_item(model, feature_cols, i)
+            rows.append({
+                "Name": i.name, "Batch": i.batch_number, "Qty": i.quantity,
+                "Expiry Date": i.expiry_date, "Days Left": days_left,
+                "Risk %": probability, "Department": i.department
+            })
+    df = pd.DataFrame(rows)
+    return Response(df.to_csv(index=False), mimetype="text/csv",
+                     headers={"Content-Disposition": "attachment;filename=near_expiry_report.csv"})
+
+@app.route("/reports/low-stock-detailed.csv")
+@login_required
+@manager_required
+def report_low_stock_detailed():
+    items = [i for i in InventoryItem.query.all() if i.quantity < i.min_stock_threshold]
+    rows = []
+    for i in items:
+        suggested = max(0, (i.min_stock_threshold * 2) - i.quantity)
+        rows.append({
+            "Name": i.name, "Current Qty": i.quantity, "Min Threshold": i.min_stock_threshold,
+            "Suggested Reorder Qty": suggested, "Department": i.department
+        })
+    df = pd.DataFrame(rows)
+    return Response(df.to_csv(index=False), mimetype="text/csv",
+                     headers={"Content-Disposition": "attachment;filename=low_stock_detailed.csv"})
+
+@app.route("/reports/full-inventory-grouped.csv")
+@login_required
+@manager_required
+def report_full_grouped():
+    status_order = {"Expired": 0, "Critical": 1, "Warning": 2, "Notice": 3, "Safe": 4}
+    items = InventoryItem.query.all()
+    rows = []
+    for i in items:
+        status, color, days_left = get_expiry_status(i)
+        rows.append({
+            "Name": i.name, "Batch": i.batch_number, "Qty": i.quantity,
+            "Expiry Date": i.expiry_date, "Days Overdue": abs(days_left) if days_left < 0 else 0,
+            "Value": round(i.quantity * i.unit_price, 2), "Department": i.department or "Unassigned",
+            "Storage Location": i.storage_location, "Status": status, "_sort": status_order.get(status, 5)
+        })
+    df = pd.DataFrame(rows).sort_values(["Department", "_sort"]).drop(columns=["_sort"])
+    return Response(df.to_csv(index=False), mimetype="text/csv",
+                     headers={"Content-Disposition": "attachment;filename=full_inventory_grouped.csv"})
+
+@app.route("/reports/wastage-analysis.csv")
+@login_required
+@manager_required
+def report_wastage_analysis():
+    removed = RemovedItem.query.all()
+    monthly = {}
+    for r in removed:
+        month_key = r.removed_at.strftime("%Y-%m")
+        if month_key not in monthly:
+            monthly[month_key] = {"qty": 0, "value": 0, "items": {}}
+        monthly[month_key]["qty"] += r.quantity
+        monthly[month_key]["value"] += r.quantity * r.unit_price
+        monthly[month_key]["items"][r.name] = monthly[month_key]["items"].get(r.name, 0) + r.quantity
+
+    rows = []
+    for month, data in sorted(monthly.items()):
+        top_items = sorted(data["items"].items(), key=lambda x: -x[1])[:3]
+        top_str = ", ".join([f"{name} ({qty})" for name, qty in top_items])
+        rows.append({
+            "Month": month, "Expired Qty": data["qty"],
+            "Expired Value": round(data["value"], 2), "Top Expired Items": top_str
+        })
+    df = pd.DataFrame(rows)
+    return Response(df.to_csv(index=False), mimetype="text/csv",
+                     headers={"Content-Disposition": "attachment;filename=wastage_analysis.csv"})
+
 
 def items_to_dataframe(items):
     rows = []
