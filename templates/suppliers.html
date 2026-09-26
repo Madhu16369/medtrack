@@ -1,21 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
 <h2 class="mb-3">🏭 Supplier Performance & Risk Scoring</h2>
-<div class="card p-3">
+<div class="card p-3 mb-3">
 <table class="table table-hover mb-0">
-    <tr><th>Supplier</th><th>Total Items</th><th>Expired</th><th>Expiry Rate</th><th>Inventory Value</th><th>Risk</th></tr>
-    {% for supplier, total, expired, rate, value, badge in results %}
+    <tr><th>Supplier</th><th>Total Items</th><th>Expired</th><th>Expiry Rate</th>
+        <th>Avg Risk %</th><th>Risk Variation (σ)</th><th>Inventory Value</th><th>Risk</th></tr>
+    {% for supplier, total, expired, rate, value, badge, avg_risk, risk_std in results %}
     <tr>
         <td>{{ supplier }}</td>
         <td>{{ total }}</td>
         <td>{{ expired }}</td>
         <td>{{ rate }}%</td>
+        <td>{{ avg_risk }}%</td>
+        <td>±{{ risk_std }}</td>
         <td>₹{{ value }}</td>
-        <td>
-          <span class="badge {{ 'bg-danger' if badge == 'High Risk' else ('bg-warning text-dark' if badge == 'Medium Risk' else 'bg-success') }}">{{ badge }}</span>
-        </td>
+        <td><span class="badge {{ 'bg-danger' if badge == 'High Risk' else ('bg-warning text-dark' if badge == 'Medium Risk' else 'bg-success') }}">{{ badge }}</span></td>
     </tr>
     {% endfor %}
 </table>
+</div>
+
+<div class="card p-3">
+<h5>Monthly Financial Loss from Disposed (Expired) Stock</h5>
+{% if monthly_loss %}
+<table class="table table-sm mb-0">
+    <tr><th>Month</th><th>Loss (₹)</th></tr>
+    {% for month, loss in monthly_loss %}
+    <tr><td>{{ month }}</td><td>₹{{ loss | round(2) }}</td></tr>
+    {% endfor %}
+</table>
+{% else %}
+<p class="text-muted mb-0">No disposal records yet — this fills in as you use the "Remove Expired Item" feature.</p>
+{% endif %}
 </div>
 {% endblock %}

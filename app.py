@@ -16,6 +16,7 @@ from models import RemovedItem
 from ml_risk import train_risk_model, predict_risk_for_item
 from ml_forecast import smart_reorder_quantity
 from ml_anomaly import detect_anomalies
+import numpy as np
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'change-this-to-something-random-later'
@@ -541,31 +542,41 @@ def ml_anomalies():
 @manager_required
 def supplier_scoring():
     items = InventoryItem.query.all()
+    model, feature_cols, metrics = train_risk_model()
+
     supplier_stats = {}
     for item in items:
         supplier = item.supplier or "Unknown"
         status, color, days_left = get_expiry_status(item)
         if supplier not in supplier_stats:
-            supplier_stats[supplier] = {"total_items": 0, "expired_items": 0, "total_value": 0}
+            supplier_stats[supplier] = {"total_items": 0, "expired_items": 0, "total_value": 0, "risks": []}
         supplier_stats[supplier]["total_items"] += 1
         supplier_stats[supplier]["total_value"] += item.quantity * item.unit_price
         if status == "Expired":
             supplier_stats[supplier]["expired_items"] += 1
+        if model:
+            _, probability, _ = predict_risk_for_item(model, feature_cols, item)
+            supplier_stats[supplier]["risks"].append(probability)
 
     results = []
     for supplier, stats in supplier_stats.items():
         expiry_rate = (stats["expired_items"] / stats["total_items"]) * 100 if stats["total_items"] else 0
-        if expiry_rate >= 20:
-            badge = "High Risk"
-        elif expiry_rate >= 5:
-            badge = "Medium Risk"
-        else:
-            badge = "Low Risk"
+        avg_risk = round(float(np.mean(stats["risks"])), 1) if stats["risks"] else 0
+        risk_std = round(float(np.std(stats["risks"])), 1) if stats["risks"] else 0
+        badge = "High Risk" if expiry_rate >= 20 else ("Medium Risk" if expiry_rate >= 5 else "Low Risk")
         results.append((supplier, stats["total_items"], stats["expired_items"],
-                         round(expiry_rate, 1), round(stats["total_value"], 2), badge))
-
+                         round(expiry_rate, 1), round(stats["total_value"], 2), badge, avg_risk, risk_std))
     results.sort(key=lambda x: -x[3])
-    return render_template("suppliers.html", results=results)
+
+    # Monthly financial loss based on your disposal log (real discarded value)
+    removed = RemovedItem.query.all()
+    monthly_loss = {}
+    for r in removed:
+        month_key = r.removed_at.strftime("%Y-%m")
+        monthly_loss[month_key] = monthly_loss.get(month_key, 0) + (r.quantity * r.unit_price)
+    monthly_loss_sorted = sorted(monthly_loss.items())
+
+    return render_template("suppliers.html", results=results, monthly_loss=monthly_loss_sorted)
 
 @app.route("/regenerate-all-barcodes")
 @login_required
