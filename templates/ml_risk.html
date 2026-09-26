@@ -37,4 +37,26 @@
     {% endfor %}
 </table>
 </div>
+
+<div class="row mt-4">
+  <div class="col-md-5">
+    <div class="card p-3"><h5>Risk Distribution</h5><canvas id="riskDist"></canvas></div>
+  </div>
+  <div class="col-md-7">
+    <div class="card p-3"><h5>Top Risk Items</h5><canvas id="topRiskBar"></canvas></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('riskDist'), {
+    type: 'doughnut',
+    data: { labels: ['Low', 'Medium', 'High'],
+        datasets: [{ data: {{ risk_dist | tojson }}, backgroundColor: ['#198754','#ffc107','#dc3545'] }] }
+});
+new Chart(document.getElementById('topRiskBar'), {
+    type: 'bar',
+    data: { labels: {{ top_item_names | tojson }},
+        datasets: [{ label: 'Risk %', data: {{ top_item_risks | tojson }}, backgroundColor: '#dc3545' }] }
+});
+</script>
 {% endblock %}

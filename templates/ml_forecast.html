@@ -31,4 +31,27 @@
     {% endfor %}
 </table>
 </div>
+
+<div class="row mt-4">
+  <div class="col-md-6">
+    <div class="card p-3"><h5>Forecasted 14-day Demand</h5><canvas id="forecastLine"></canvas></div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-3"><h5>Suggested Reorder Quantities</h5><canvas id="reorderBar"></canvas></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('forecastLine'), {
+    type: 'line',
+    data: { labels: {{ item_names | tojson }},
+        datasets: [{ label: 'Forecasted Demand', data: {{ forecast_values | tojson }},
+                     borderColor: '#0d6efd', fill: false }] }
+});
+new Chart(document.getElementById('reorderBar'), {
+    type: 'bar',
+    data: { labels: {{ item_names | tojson }},
+        datasets: [{ label: 'Suggested Reorder Qty', data: {{ reorder_values | tojson }}, backgroundColor: '#198754' }] }
+});
+</script>
 {% endblock %}

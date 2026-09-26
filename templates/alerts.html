@@ -25,4 +25,31 @@
     {% endfor %}
 </table>
 </div>
+<div class="row mb-4">
+  <div class="col-md-5">
+    <div class="card p-3"><h5>Expiry Status Overview</h5><canvas id="statusDonut"></canvas></div>
+  </div>
+  <div class="col-md-7">
+    <div class="row">
+      {% for label, value in [('Safe', status_values[0]), ('Notice', status_values[1]), ('Warning', status_values[2]), ('Critical', status_values[3]), ('Expired', status_values[4])] %}
+      <div class="col">
+        <div class="card p-2 text-center">
+          <small>{{ label }}</small><h4>{{ value }}</h4>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('statusDonut'), {
+    type: 'doughnut',
+    data: {
+        labels: {{ status_labels | tojson }},
+        datasets: [{ data: {{ status_values | tojson }},
+            backgroundColor: ['#198754','#0dcaf0','#ffc107','#dc3545','#6c757d'] }]
+    }
+});
+</script>
 {% endblock %}

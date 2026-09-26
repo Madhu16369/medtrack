@@ -124,33 +124,52 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
+    if current_user.role == "Manager":
+        return manager_dashboard_view()
+    return nurse_dashboard_view()
+
+def manager_dashboard_view():
     items = InventoryItem.query.all()
+    model, feature_cols, metrics = train_risk_model()
+
     total_items = len(items)
+    total_value = round(sum(i.quantity * i.unit_price for i in items), 2)
     low_stock = [i for i in items if i.quantity < i.min_stock_threshold]
-    near_expiry = [i for i in items if get_expiry_status(i)[0] in ("Critical", "Warning", "Notice")]
+    expiring_30 = [i for i in items if get_expiry_status(i)[0] == "Critical"]
     expired = [i for i in items if get_expiry_status(i)[0] == "Expired"]
 
-    reorder_suggestions = []
-    for item in low_stock:
-        suggested_qty = max(0, (item.min_stock_threshold * 2) - item.quantity)
-        reorder_suggestions.append((item, suggested_qty))
+    high_risk_items = []
+    if model:
+        for item in items:
+            risk, probability, action = predict_risk_for_item(model, feature_cols, item)
+            if probability > 60:
+                high_risk_items.append((item, risk, probability, action))
+    high_risk_items.sort(key=lambda x: -x[2])
+
+    status_counts = {"Safe": 0, "Notice": 0, "Warning": 0, "Critical": 0, "Expired": 0}
+    for i in items:
+        status_counts[get_expiry_status(i)[0]] += 1
 
     dept_totals = {}
     for item in items:
         dept = item.department or "Unassigned"
         dept_totals[dept] = dept_totals.get(dept, 0) + item.quantity
 
-    return render_template(
-        "dashboard.html",
-        total_items=total_items,
-        low_stock=low_stock,
-        near_expiry=near_expiry,
-        expired=expired,
-        reorder_suggestions=reorder_suggestions,
-        dept_labels=list(dept_totals.keys()),
-        dept_values=list(dept_totals.values())
-    )
+    reorder_suggestions = []
+    for item in low_stock:
+        suggested_qty = max(0, (item.min_stock_threshold * 2) - item.quantity)
+        reorder_suggestions.append((item, suggested_qty))
 
+    high_risk_names = [h[0].name for h in high_risk_items[:8]]
+    high_risk_probs = [h[2] for h in high_risk_items[:8]]
+
+    return render_template("dashboard_manager.html",
+        total_items=total_items, total_value=total_value, low_stock=low_stock,
+        expiring_30=expiring_30, expired=expired, high_risk_items=high_risk_items[:10],
+        status_labels=list(status_counts.keys()), status_values=list(status_counts.values()),
+        dept_labels=list(dept_totals.keys()), dept_values=list(dept_totals.values()),
+        reorder_suggestions=reorder_suggestions,
+        high_risk_names=high_risk_names, high_risk_probs=high_risk_probs)
 
 @app.route("/inventory")
 @login_required
@@ -376,12 +395,14 @@ def scan_update(item_id):
 def alerts():
     items = InventoryItem.query.order_by(InventoryItem.expiry_date).all()
     alerts_data = []
+    status_counts = {"Safe": 0, "Notice": 0, "Warning": 0, "Critical": 0, "Expired": 0}
     for item in items:
         status, color, days_left = get_expiry_status(item)
+        status_counts[status] += 1
         if status != "Safe":
             alerts_data.append((item, status, color, days_left))
-    return render_template("alerts.html", alerts=alerts_data)
-
+    return render_template("alerts.html", alerts=alerts_data,
+        status_labels=list(status_counts.keys()), status_values=list(status_counts.values()))
 
 @app.route("/reports")
 @login_required
@@ -545,16 +566,21 @@ def ml_risk_dashboard():
 
     items = InventoryItem.query.all()
     results = []
+    risk_counts = {"Low": 0, "Medium": 0, "High": 0}
     for item in items:
         risk, probability, action = predict_risk_for_item(model, feature_cols, item)
         status, color, days_left = get_expiry_status(item)
         results.append((item, risk, probability, action, days_left))
+        risk_counts[risk] += 1
 
     critical_items = [r for r in results if r[2] > 70]
     top_items = sorted(results, key=lambda x: -x[2])[:8]
 
     return render_template("ml_risk.html", metrics=metrics,
-                            critical_count=len(critical_items), top_items=top_items)
+        critical_count=len(critical_items), top_items=top_items,
+        risk_dist=[risk_counts["Low"], risk_counts["Medium"], risk_counts["High"]],
+        top_item_names=[t[0].name for t in top_items],
+        top_item_risks=[t[2] for t in top_items])
 
 @app.route("/ml/risk/high")
 @login_required
@@ -609,8 +635,13 @@ def ml_forecast_dashboard():
     for item in items:
         forecast_14d, safety_stock, suggested = smart_reorder_quantity(item)
         results.append((item, forecast_14d, safety_stock, suggested))
-    return render_template("ml_forecast.html", results=results)
 
+    item_names = [r[0].name for r in results]
+    forecast_values = [r[1] for r in results]
+    reorder_values = [r[3] for r in results]
+
+    return render_template("ml_forecast.html", results=results,
+        item_names=item_names, forecast_values=forecast_values, reorder_values=reorder_values)
 
 @app.route("/fefo")
 @login_required
