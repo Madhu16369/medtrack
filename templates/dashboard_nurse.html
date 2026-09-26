@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Welcome, {{ current_user.username }} 👩‍⚕️</h2>
+<div class="alert alert-info">You are viewing data for: <b>{{ my_dept }}</b></div>
+
+<div class="row mt-3 g-3">
+    <div class="col-md-3"><div class="card p-3 text-center bg-danger-subtle"><h6>Expiring in 30 Days</h6><h3>{{ expiring_30|length }}</h3></div></div>
+    <div class="col-md-3"><div class="card p-3 text-center bg-warning-subtle"><h6>Low Stock (My Dept)</h6><h3>{{ low_stock|length }}</h3></div></div>
+    <div class="col-md-3"><div class="card p-3 text-center bg-info-subtle"><h6>Priority Use Items</h6><h3>{{ priority_list|length }}</h3></div></div>
+    <div class="col-md-3"><div class="card p-3 text-center"><h6>Total Items (My Dept)</h6><h3>{{ total_items }}</h3></div></div>
+</div>
+
+<div class="row mt-4 g-3">
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h5>🥇 Priority Use List (Use First)</h5>
+            <table class="table table-sm mb-0">
+                <tr><th>Item</th><th>Days Left</th><th>Urgency</th></tr>
+                {% for item, days_left, score in priority_list %}
+                <tr><td>{{ item.name }}</td><td>{{ days_left }}</td><td>{{ score }}</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h5>📉 Low Stock — Inform Manager</h5>
+            <table class="table table-sm mb-0">
+                <tr><th>Item</th><th>Current Qty</th><th>Threshold</th></tr>
+                {% for item in low_stock %}
+                <tr><td>{{ item.name }}</td><td>{{ item.quantity }}</td><td>{{ item.min_stock_threshold }}</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card p-3 mt-4">
+    <h5>Quick Actions</h5>
+    <a href="/scan" class="btn btn-primary btn-lg me-2">📷 Scan Barcode</a>
+    <a href="/inventory" class="btn btn-outline-secondary">📦 View My Department Inventory</a>
+</div>
+{% endblock %}

@@ -17,6 +17,7 @@ from ml_risk import train_risk_model, predict_risk_for_item
 from ml_forecast import smart_reorder_quantity
 from ml_anomaly import detect_anomalies
 import numpy as np
+from models import fefo_priority_score
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'change-this-to-something-random-later'
@@ -69,6 +70,28 @@ def generate_barcode_image(item):
     os.remove(saved_file)
     return final_path
 
+def nurse_dashboard_view():
+    my_dept = current_user.department
+    items = InventoryItem.query.filter_by(department=my_dept).all() if my_dept else InventoryItem.query.all()
+
+    expiring_30 = [i for i in items if get_expiry_status(i)[0] == "Critical"]
+    low_stock = [i for i in items if i.quantity < i.min_stock_threshold]
+
+    ranked = []
+    for item in items:
+        status, color, days_left = get_expiry_status(item)
+        if status == "Safe":
+            continue
+        movements = StockMovement.query.filter_by(item_id=item.id, movement_type="Issue").all()
+        total_issued = sum(m.quantity for m in movements)
+        avg_daily_issue = total_issued / 180 if total_issued else 0
+        score = fefo_priority_score(item, avg_daily_issue)
+        ranked.append((item, days_left, score))
+    ranked.sort(key=lambda x: -x[2])
+
+    return render_template("dashboard_nurse.html",
+        my_dept=my_dept or "All Departments", total_items=len(items),
+        expiring_30=expiring_30, low_stock=low_stock, priority_list=ranked[:8])
 
 @app.route("/")
 def home():
@@ -88,7 +111,7 @@ def register():
             return redirect("/register")
 
         hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        new_user = User(username=username, password_hash=hashed.decode('utf-8'), role=role)
+        new_user = User(username=username, password_hash=hashed.decode('utf-8'), role=role, department=request.form.get("department"))
         db.session.add(new_user)
         db.session.commit()
         flash("Account created! Please log in.")
