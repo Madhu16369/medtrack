@@ -8,6 +8,7 @@ import qrcode
 import os
 import pandas as pd
 from flask import Response
+from models import DEPARTMENTS, SUPPLIERS
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'change-this-to-something-random-later'
@@ -108,12 +109,21 @@ def dashboard():
         dept_values=list(dept_totals.values())
     )
 
-
 @app.route("/inventory")
 @login_required
 def inventory_list():
-    items = InventoryItem.query.all()
-    return render_template("inventory_list.html", items=items)
+    query = InventoryItem.query
+    search_term = request.args.get("q", "").strip()
+    department_filter = request.args.get("department", "").strip()
+
+    if search_term:
+        query = query.filter(InventoryItem.name.ilike(f"%{search_term}%"))
+    if department_filter:
+        query = query.filter(InventoryItem.department == department_filter)
+
+    items = query.all()
+    return render_template("inventory_list.html", items=items, departments=DEPARTMENTS)
+
 
 
 @app.route("/inventory/add", methods=["GET", "POST"])
@@ -144,7 +154,7 @@ def add_item():
         db.session.commit()
         flash("Item added successfully!")
         return redirect("/inventory")
-    return render_template("add_item.html")
+    return render_template("add_item.html", departments=DEPARTMENTS, suppliers=SUPPLIERS)
 
 
 @app.route("/inventory/edit/<int:item_id>", methods=["GET", "POST"])
@@ -191,11 +201,72 @@ def backfill_qr():
     db.session.commit()
     return "Backfilled QR codes for all items without one."
 
+@app.route("/inventory/template.csv")
+@login_required
+def inventory_template():
+    sample = pd.DataFrame([{
+        "name": "Paracetamol 500mg", "batch_number": "B2026-01", "quantity": 100,
+        "expiry_date": "2026-12-31", "supplier": "MedSupply Co.",
+        "storage_location": "Shelf A1", "department": "Pharmacy",
+        "unit_price": 2.5, "min_stock_threshold": 20
+    }])
+    return Response(sample.to_csv(index=False), mimetype="text/csv",
+                     headers={"Content-Disposition": "attachment;filename=inventory_template.csv"})
+
+@app.route("/inventory/upload", methods=["GET", "POST"])
+@login_required
+def upload_inventory():
+    if request.method == "POST":
+        file = request.files.get("excel_file")
+        if not file:
+            flash("No file selected.")
+            return redirect("/inventory/upload")
+        try:
+            df = pd.read_excel(file)
+        except Exception as e:
+            flash(f"Could not read file: {e}")
+            return redirect("/inventory/upload")
+
+        required_cols = {"name", "batch_number", "quantity", "expiry_date"}
+        if not required_cols.issubset(set(df.columns)):
+            flash(f"Missing required columns. Need at least: {', '.join(required_cols)}")
+            return redirect("/inventory/upload")
+
+        added, skipped = 0, 0
+        for _, row in df.iterrows():
+            try:
+                new_item = InventoryItem(
+                    name=str(row["name"]),
+                    batch_number=str(row["batch_number"]),
+                    quantity=int(row["quantity"]),
+                    expiry_date=pd.to_datetime(row["expiry_date"]).date(),
+                    supplier=str(row.get("supplier", "")),
+                    storage_location=str(row.get("storage_location", "")),
+                    department=str(row.get("department", "")),
+                    unit_price=float(row.get("unit_price", 0) or 0),
+                    min_stock_threshold=int(row.get("min_stock_threshold", 10) or 10),
+                )
+                db.session.add(new_item)
+                db.session.flush()
+                qr_img = qrcode.make(f"ITEM:{new_item.id}")
+                qr_path = os.path.join("static", "qrcodes", f"item_{new_item.id}.png")
+                qr_img.save(qr_path)
+                new_item.qr_code_path = qr_path
+                added += 1
+            except Exception:
+                skipped += 1
+        db.session.commit()
+        flash(f"Import complete: {added} items added, {skipped} rows skipped due to errors.")
+        return redirect("/inventory")
+
+    return render_template("upload_inventory.html")
+
 
 @app.route("/scan")
 @login_required
 def scan():
     return render_template("scan.html")
+
 
 
 @app.route("/scan/lookup")

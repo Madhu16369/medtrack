@@ -2,6 +2,8 @@ from extensions import db, login_manager
 from flask_login import UserMixin
 from datetime import datetime
 
+DEPARTMENTS = ["Pharmacy", "Surgery", "Emergency", "ICU", "General Ward", "Radiology"]
+SUPPLIERS = ["MedSupply Co.", "HealFast Pharma", "SafeHands Ltd.", "LifeLine Meds", "DiaCare Pharma", "OrthoTech Inc."]
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))

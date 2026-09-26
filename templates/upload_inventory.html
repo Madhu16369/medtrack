@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Bulk Upload Inventory (Excel)</h2>
+<p class="text-muted">Upload an .xlsx file with columns: name, batch_number, quantity,
+expiry_date (YYYY-MM-DD), supplier, storage_location, department, unit_price, min_stock_threshold</p>
+<a href="/inventory/template.csv" class="btn btn-outline-secondary btn-sm mb-3">Download Sample Template</a>
+<form method="POST" enctype="multipart/form-data">
+    <input type="file" name="excel_file" accept=".xlsx" class="form-control mb-3" required>
+    <button type="submit" class="btn btn-primary">Upload & Import</button>
+</form>
+{% endblock %}

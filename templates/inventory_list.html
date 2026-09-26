@@ -1,7 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Inventory Items</h2>
+<form method="GET" class="row g-2 mb-3">
+    <div class="col-auto">
+        <input type="text" name="q" class="form-control" placeholder="Search by item name"
+               value="{{ request.args.get('q', '') }}">
+    </div>
+    <div class="col-auto">
+        <select name="department" class="form-control">
+            <option value="">All Departments</option>
+            {% for d in departments %}
+            <option value="{{ d }}" {% if request.args.get('department') == d %}selected{% endif %}>{{ d }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto"><button class="btn btn-secondary">Search</button></div>
+</form>
 <a href="/inventory/add" class="btn btn-primary mb-3">+ Add New Item</a>
+<a href="/inventory/upload" class="btn btn-outline-primary mb-3">📤 Bulk Upload (Excel)</a>
 <table class="table table-bordered">
     <tr>
         <th>Name</th><th>Batch</th><th>Qty</th><th>Expiry</th>
