@@ -9,7 +9,9 @@
         <label>Action</label>
         <select name="movement_type" class="form-control">
             <option value="Issue">Issue (remove stock)</option>
+            {% if current_user.role == "Manager" %}
             <option value="Receive">Receive (add stock)</option>
+            {% endif %}
         </select>
     </div>
     <div class="mb-3">

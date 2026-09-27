@@ -410,6 +410,10 @@ def scan_update(item_id):
     movement_type = request.form["movement_type"]
     qty = int(request.form["quantity"])
 
+    if movement_type == "Receive" and current_user.role != "Manager":
+        flash("Only Inventory Managers can receive new stock.")
+        return redirect("/scan")
+
     if movement_type == "Issue":
         item.quantity = max(0, item.quantity - qty)
     else:
@@ -463,7 +467,7 @@ def report_expired_detailed():
                 "Department": i.department, "Storage Location": i.storage_location
             })
     df = pd.DataFrame(rows)
-    return Response(df.to_csv(index=False), mimetype="text/csv",
+    return Response(df.to_csv(index=False).encode("utf-8-sig"), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=expired_items_detailed.csv"})
 
 @app.route("/reports/near-expiry.csv")
@@ -479,14 +483,26 @@ def report_near_expiry():
             probability = 0
             if model:
                 _, probability, _ = predict_risk_for_item(model, feature_cols, i)
+
+            if days_left <= 30:
+                window, window_order = "0-30 Days", 1
+            elif days_left <= 60:
+                window, window_order = "31-60 Days", 2
+            else:
+                window, window_order = "61-90 Days", 3
+
             rows.append({
                 "Name": i.name, "Batch": i.batch_number, "Qty": i.quantity,
                 "Expiry Date": i.expiry_date, "Days Left": days_left,
-                "Risk %": probability, "Department": i.department
+                "Expiry Window": window, "Risk %": probability, "Department": i.department,
+                "_sort": window_order
             })
-    df = pd.DataFrame(rows)
-    return Response(df.to_csv(index=False), mimetype="text/csv",
+
+    df = pd.DataFrame(rows).sort_values(["_sort", "Days Left"]).drop(columns=["_sort"])
+    csv_data = df.to_csv(index=False)
+    return Response(csv_data.encode("utf-8-sig"), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=near_expiry_report.csv"})
+
 
 @app.route("/reports/low-stock-detailed.csv")
 @login_required
@@ -501,7 +517,7 @@ def report_low_stock_detailed():
             "Suggested Reorder Qty": suggested, "Department": i.department
         })
     df = pd.DataFrame(rows)
-    return Response(df.to_csv(index=False), mimetype="text/csv",
+    return Response(df.to_csv(index=False).encode("utf-8-sig"), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=low_stock_detailed.csv"})
 
 @app.route("/reports/full-inventory-grouped.csv")
@@ -520,7 +536,7 @@ def report_full_grouped():
             "Storage Location": i.storage_location, "Status": status, "_sort": status_order.get(status, 5)
         })
     df = pd.DataFrame(rows).sort_values(["Department", "_sort"]).drop(columns=["_sort"])
-    return Response(df.to_csv(index=False), mimetype="text/csv",
+    return Response(df.to_csv(index=False).encode("utf-8-sig"), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=full_inventory_grouped.csv"})
 
 @app.route("/reports/wastage-analysis.csv")
@@ -546,7 +562,7 @@ def report_wastage_analysis():
             "Expired Value": round(data["value"], 2), "Top Expired Items": top_str
         })
     df = pd.DataFrame(rows)
-    return Response(df.to_csv(index=False), mimetype="text/csv",
+    return Response(df.to_csv(index=False).encode("utf-8-sig"), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=wastage_analysis.csv"})
 
 
@@ -568,7 +584,7 @@ def items_to_dataframe(items):
 def report_expired():
     items = [i for i in InventoryItem.query.all() if get_expiry_status(i)[0] == "Expired"]
     df = items_to_dataframe(items)
-    return Response(df.to_csv(index=False), mimetype="text/csv",
+    return Response(df.to_csv(index=False).encode("utf-8-sig"), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=expired_items.csv"})
 
 
@@ -578,7 +594,7 @@ def report_expired():
 def report_low_stock():
     items = [i for i in InventoryItem.query.all() if i.quantity < i.min_stock_threshold]
     df = items_to_dataframe(items)
-    return Response(df.to_csv(index=False), mimetype="text/csv",
+    return Response(df.to_csv(index=False).encode("utf-8-sig"), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=low_stock_items.csv"})
 
 
@@ -588,7 +604,7 @@ def report_low_stock():
 def report_full():
     items = InventoryItem.query.all()
     df = items_to_dataframe(items)
-    return Response(df.to_csv(index=False), mimetype="text/csv",
+    return Response(df.to_csv(index=False).encode("utf-8-sig"), mimetype="text/csv",
                      headers={"Content-Disposition": "attachment;filename=full_inventory.csv"})
 
 

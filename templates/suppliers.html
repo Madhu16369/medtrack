@@ -20,13 +20,15 @@
 </table>
 </div>
 
-<div class="card p-3">
-<h5>Monthly Financial Loss — Last 6 Months (Disposed/Expired Stock)</h5>
-<canvas id="lossChart" class="mb-3"></canvas>
-<table class="table table-sm mb-0">
-    <tr>{% for month, loss in monthly_loss %}<th>{{ month }}</th>{% endfor %}</tr>
-    <tr>{% for month, loss in monthly_loss %}<td>₹{{ loss }}</td>{% endfor %}</tr>
-</table>
+<div class="d-flex justify-content-center">
+  <div class="card p-3" style="max-width: 550px; width: 100%;">
+    <h5 class="text-center mb-3">Monthly Financial Loss — Last 6 Months</h5>
+    <canvas id="lossChart" height="220"></canvas>
+    <table class="table table-sm mb-0 mt-3">
+        <tr>{% for month, loss in monthly_loss %}<th>{{ month }}</th>{% endfor %}</tr>
+        <tr>{% for month, loss in monthly_loss %}<td>₹{{ loss }}</td>{% endfor %}</tr>
+    </table>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
