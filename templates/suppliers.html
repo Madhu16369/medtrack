@@ -21,16 +21,22 @@
 </div>
 
 <div class="card p-3">
-<h5>Monthly Financial Loss from Disposed (Expired) Stock</h5>
-{% if monthly_loss %}
+<h5>Monthly Financial Loss — Last 6 Months (Disposed/Expired Stock)</h5>
+<canvas id="lossChart" class="mb-3"></canvas>
 <table class="table table-sm mb-0">
-    <tr><th>Month</th><th>Loss (₹)</th></tr>
-    {% for month, loss in monthly_loss %}
-    <tr><td>{{ month }}</td><td>₹{{ loss | round(2) }}</td></tr>
-    {% endfor %}
+    <tr>{% for month, loss in monthly_loss %}<th>{{ month }}</th>{% endfor %}</tr>
+    <tr>{% for month, loss in monthly_loss %}<td>₹{{ loss }}</td>{% endfor %}</tr>
 </table>
-{% else %}
-<p class="text-muted mb-0">No disposal records yet — this fills in as you use the "Remove Expired Item" feature.</p>
-{% endif %}
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('lossChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ monthly_loss | map('first') | list | tojson }},
+        datasets: [{ label: 'Financial Loss (₹)', data: {{ monthly_loss | map('last') | list | tojson }}, backgroundColor: '#dc3545' }]
+    }
+});
+</script>
 {% endblock %}

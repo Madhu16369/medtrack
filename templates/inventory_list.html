@@ -32,7 +32,7 @@
 <table class="table table-hover align-middle mb-0">
     <tr>
         <th>Name</th><th>Batch</th><th>Qty</th><th>Expiry</th>
-        <th>Department</th><th>QR Code</th><th>Actions</th>
+        <th>Department</th><th>Barcode</th><th>Actions</th>
     </tr>
     {% for item in items %}
     <tr>
@@ -43,8 +43,11 @@
         <td><span class="badge bg-secondary">{{ item.department }}</span></td>
         <td>
           {% if item.qr_code_path %}
-            <img src="/{{ item.qr_code_path }}" width="50">
-          {% else %}N/A{% endif %}
+            <img src="/{{ item.qr_code_path }}" width="80"><br>
+            <a href="/{{ item.qr_code_path }}" download class="small">📥 Download</a>
+          {% else %}
+            N/A
+          {% endif %}
         </td>
         <td>
             {% if current_user.role == "Manager" %}

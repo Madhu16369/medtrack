@@ -18,6 +18,7 @@ from ml_forecast import smart_reorder_quantity
 from ml_anomaly import detect_anomalies
 import numpy as np
 from models import fefo_priority_score
+from datetime import date
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'change-this-to-something-random-later'
@@ -92,6 +93,19 @@ def nurse_dashboard_view():
     return render_template("dashboard_nurse.html",
         my_dept=my_dept or "All Departments", total_items=len(items),
         expiring_30=expiring_30, low_stock=low_stock, priority_list=ranked[:8])
+
+def get_last_n_months(n):
+    today = date.today()
+    months = []
+    year, month = today.year, today.month
+    for _ in range(n):
+        months.append(f"{year}-{month:02d}")
+        month -= 1
+        if month == 0:
+            month = 12
+            year -= 1
+    return list(reversed(months))
+
 
 @app.route("/")
 def home():
@@ -724,15 +738,22 @@ def supplier_scoring():
                          round(expiry_rate, 1), round(stats["total_value"], 2), badge, avg_risk, risk_std))
     results.sort(key=lambda x: -x[3])
 
-    # Monthly financial loss based on your disposal log (real discarded value)
+    # Last 6 months financial loss, including months with zero loss
+    last_6_months = get_last_n_months(6)
+    monthly_loss_dict = {m: 0.0 for m in last_6_months}
     removed = RemovedItem.query.all()
-    monthly_loss = {}
     for r in removed:
         month_key = r.removed_at.strftime("%Y-%m")
-        monthly_loss[month_key] = monthly_loss.get(month_key, 0) + (r.quantity * r.unit_price)
-    monthly_loss_sorted = sorted(monthly_loss.items())
+        if month_key in monthly_loss_dict:
+            monthly_loss_dict[month_key] += r.quantity * r.unit_price
 
-    return render_template("suppliers.html", results=results, monthly_loss=monthly_loss_sorted)
+    monthly_loss = []
+    for m in last_6_months:
+        display_label = datetime.strptime(m, "%Y-%m").strftime("%b %Y")
+        monthly_loss.append((display_label, round(monthly_loss_dict[m], 2)))
+
+    return render_template("suppliers.html", results=results, monthly_loss=monthly_loss)
+
 
 @app.route("/regenerate-all-barcodes")
 @login_required
