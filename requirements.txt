@@ -2,6 +2,9 @@
    flask-sqlalchemy
    flask-login
    bcrypt
-   qrcode
    pillow
    pandas
+   numpy
+   scikit-learn
+   python-barcode
+   openpyxl
